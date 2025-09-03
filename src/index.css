@@ -1,0 +1,12 @@
+/* Tailwind v4 */
+@import "tailwindcss";
+
+/* base mínima para layout normal */
+html, body, #root { height: 100%; }
+body { margin: 0; }
+
+/* look claro tipo mock (opcional) */
+body { @apply bg-slate-50 text-slate-900; }
+
+/* si prefieres no usar @apply, elimina la fila de arriba
+   y pon clases Tailwind directo en tus componentes. */
