@@ -1,18 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "skipLibCheck": true,
-    "strict": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    "strict": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] },
-    "types": ["vite/client", "node"]
-  },
-  "include": ["src"]
+    "paths": {
+      "@/*": ["src/*"],
+      "@pages/*": ["src/pages/*"],
+      "@layouts/*": ["src/layouts/*"],
+      "@router/*": ["src/router/*"],
+      "@components/*": ["src/components/*"]
+    },
+    "types": ["vite/client"]
+  }
 }

@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { db } from "../../firebase";
+import { db } from "../firebase";
 import { doc, getDoc, type Firestore } from "firebase/firestore";
 
 type T = { title: string; content?: string };

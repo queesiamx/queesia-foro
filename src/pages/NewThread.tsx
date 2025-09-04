@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { db } from "../../firebase";
+import { db } from "../firebase";
 import { addDoc, collection, serverTimestamp, type Firestore } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
