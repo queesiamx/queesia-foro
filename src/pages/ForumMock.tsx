@@ -22,7 +22,7 @@ const THREADS = [
     category: "preguntas", tags: ["firebase","vite","auth"], pinned: true, solved: false, replies: 12, views: 425 },
   { id: 2, title: "Guía visual de estilos para el foro (v1)",
     excerpt: "Colores, espaciados, radios y componentes base para que el foro se parezca al mock.",
-    author: { name: "Equipo Quesia", handle: "@core", avatar: null },
+    author: { name: "Equipo Queesia", handle: "@core", avatar: null },
     createdAt: "ayer", lastActivity: { by: "Leo", when: "hace 3 h" },
     category: "anuncios", tags: ["ui","tailwind"], pinned: true, solved: true, replies: 8, views: 980 },
   { id: 3, title: "Colecciones y reglas para Comentarios, Likes y Reportes",
@@ -85,7 +85,7 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 text-white font-bold">Q</div>
           <div>
-            <div className="text-sm uppercase tracking-wider text-slate-500">Quesia</div>
+            <div className="text-sm uppercase tracking-wider text-slate-500">Queesia</div>
             <div className="-mt-1 text-base font-semibold text-slate-800">Foro</div>
           </div>
         </div>
@@ -286,7 +286,7 @@ function ForumMock() {
 
       <footer className="border-t border-slate-200 bg-white/80">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 text-sm text-slate-500">
-          <p>© {new Date().getFullYear()} Quesia · Comunidad</p>
+          <p>© {new Date().getFullYear()} Queesia · Comunidad</p>
           <div className="flex items-center gap-4">
             <a href="#" className="hover:text-slate-700">Privacidad</a>
             <a href="#" className="hover:text-slate-700">Términos</a>
