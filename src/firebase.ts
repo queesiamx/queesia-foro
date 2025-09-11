@@ -16,6 +16,7 @@ for (const [k, v] of Object.entries(cfg)) {
   if (!v) console.warn(`[firebase] Falta variable: ${k}`);
 }
 
+
 let app: FirebaseApp;
 try {
   app = getApps().length ? getApp() : initializeApp(cfg);
@@ -27,3 +28,5 @@ try {
 
 export const db: Firestore | undefined = app ? getFirestore(app) : undefined;
 export const auth: Auth | undefined = app ? getAuth(app) : undefined;
+// (opcional) helper
+export const assertDb = () => db;

@@ -10,3 +10,30 @@ body { @apply bg-slate-50 text-slate-900; }
 
 /* si prefieres no usar @apply, elimina la fila de arriba
    y pon clases Tailwind directo en tus componentes. */
+@layer components {
+  .gradient-brand { @apply bg-gradient-to-r from-amber-500 via-amber-600 to-blue-500; }
+}
+/* === Gradiente de marca unificado (mismos colores en toda la app) === */
+@layer utilities {
+  /* Indigo 500 (#6366F1) -> Amber 400 (#FBBF24) */
+  .bg-brand-grad        { background-image: linear-gradient(to right, #6366F1, #FBBF24); }
+  .bg-brand-grad-rev    { background-image: linear-gradient(to right, #FBBF24, #6366F1); }
+  .bg-brand-grad-br     { background-image: linear-gradient(to bottom right, #6366F1, #FBBF24); }
+}
+/* === Quesia: tokens y utilidades de gradiente (ámbar → índigo) === */
+:root{
+  --from: #F59E0B; /* amber-500 */
+  --via:  #4F46E5; /* indigo-600 */
+  --to:   #4338CA; /* indigo-700 */
+}
+
+.q-gradient{
+  background: linear-gradient(90deg, var(--from), var(--via), var(--to));
+}
+
+.q-gradient-text{
+  background: linear-gradient(90deg, var(--from), var(--via), var(--to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

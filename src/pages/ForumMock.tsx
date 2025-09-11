@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
+
 // --- Mock data ---
 const CATEGORIES = [
   { id: "all", name: "Todas", color: "bg-slate-200 text-slate-700" },
@@ -92,12 +93,13 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
         <div className="hidden items-center gap-6 md:flex">
           <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/">Inicio</Link>
           <a className="text-sm font-medium text-slate-700 hover:text-slate-900" href="#">Categorías</a>
-          <a className="text-sm font-medium text-slate-700 hover:text-slate-900" href="#">Reglas</a>
+            <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/reglas">
+    Reglas
+  </Link>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onCreate}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
-            <Plus className="h-4 w-4" /> Crear tema
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-white bg-brand-grad-rev hover:brightness-95"> <Plus className="h-4 w-4" /> Crear tema
           </button>
         </div>
       </div>
@@ -290,7 +292,7 @@ function ForumMock() {
           <div className="flex items-center gap-4">
             <a href="#" className="hover:text-slate-700">Privacidad</a>
             <a href="#" className="hover:text-slate-700">Términos</a>
-            <a href="#" className="hover:text-slate-700">Contacto</a>
+            <a href="https://queesia.com/contacto" className="hover:text-slate-700">Contacto</a>
           </div>
         </div>
       </footer>
