@@ -1,32 +1,28 @@
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+// src/firebase.ts
+import {
+  initializeApp, getApps, getApp,
+  type FirebaseApp, type FirebaseOptions
+} from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
-const cfg = {
+const cfg: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, // <- este
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Log suave para detectar envs faltantes (no tumba la app)
+// (opcional) avisar si falta algo
 for (const [k, v] of Object.entries(cfg)) {
   if (!v) console.warn(`[firebase] Falta variable: ${k}`);
 }
 
+export const app: FirebaseApp = getApps().length ? getApp() : initializeApp(cfg);
+export const db: Firestore = getFirestore(app);
+export const auth: Auth = getAuth(app);
 
-let app: FirebaseApp;
-try {
-  app = getApps().length ? getApp() : initializeApp(cfg);
-} catch (e) {
-  console.error("[firebase] init error:", e);
-  // @ts-expect-error
-  app = undefined;
-}
-
-export const db: Firestore | undefined = app ? getFirestore(app) : undefined;
-export const auth: Auth | undefined = app ? getAuth(app) : undefined;
-// (opcional) helper
-export const assertDb = () => db;
+// Si quieres conservar el helper:
+export const assertDb = () => db; // ahora es Firestore, no undefined

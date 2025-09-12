@@ -38,20 +38,19 @@ export function watchTrendingThreads(
   const pageSize = opts.pageSize ?? 10;
 
   // Intenta con trendingScore
-  const q1 = query(
-    collection(DB, "threads"),
-    where("status", "==", "published"),
-    orderBy("trendingScore", "desc"),
-    limit(pageSize)
-  );
+   const q1 = query(
+   collection(DB, "threads"),
+   where("status", "in", ["published", "open"]),  // <—
+   orderBy("trendingScore", "desc"),
+   limit(pageSize)
+ );
 
   // Fallback por fecha (y reordenamos en cliente)
-  const q2 = query(
-    collection(DB, "threads"),
-    where("status", "==", "published"),
-    orderBy("createdAt", "desc"),
-    limit(pageSize * 3)
-  );
+ const q2 = query(
+   collection(DB, "threads"),
+   orderBy("lastActivityAt", "desc"),
+   limit(pageSize * 2)
+ );
 
   const handleQ2 = (snap2: QuerySnapshot<DocumentData>) => {
     let items: Thread[] = snap2.docs.map((d) => ({
@@ -68,27 +67,30 @@ export function watchTrendingThreads(
   let unsubQ2: (() => void) | null = null;
 
   const unsubQ1 = onSnapshot(
-    q1,
-    (snap) => {
-      if (!snap.empty) {
-        const items: Thread[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as any),
-        }));
-        onData(items);
-      } else {
+  q1,
+  (snap) => {
+    if (!snap.empty) {
+      const hasScore = snap.docs.some((d) => d.get("trendingScore") != null);
+      if (!hasScore) {
+        // Usa el fallback ordenado por lastActivityAt y reordena en cliente
         unsubQ2 = onSnapshot(q2, handleQ2);
+        return;
       }
-    },
-    (err) => {
-      // Si falta índice, caemos al fallback
-      if ((err as any).code === "failed-precondition" || /index/i.test(String(err?.message))) {
-        unsubQ2 = onSnapshot(q2, handleQ2);
-      } else {
-        console.error(err);
-      }
+      const items: Thread[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      onData(items);
+    } else {
+      unsubQ2 = onSnapshot(q2, handleQ2);
     }
-  );
+  },
+  (err) => {
+    if ((err as any).code === "failed-precondition" || /index/i.test(String(err?.message))) {
+      unsubQ2 = onSnapshot(q2, handleQ2);
+    } else {
+      console.error(err);
+    }
+  }
+);
+
 
   return () => {
     unsubQ1();
@@ -98,9 +100,12 @@ export function watchTrendingThreads(
 
 // ---------- Aggregations rápidas ----------
 export async function getSidebarCounts() {
-  const publishedQ = query(
+  const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+  const baseStatus = ["published", "open"];
+
+  const totalQ = query(
     collection(DB, "threads"),
-    where("status", "==", "published")
+    where("status", "in", baseStatus)
   );
   const recientesQ = query(
     collection(DB, "threads"),
@@ -118,7 +123,7 @@ export async function getSidebarCounts() {
   );
 
   const [all, rec, preg, tuto] = await Promise.all([
-    getCountFromServer(publishedQ),
+    getCountFromServer(totalQ),
     getCountFromServer(recientesQ),
     getCountFromServer(preguntasQ),
     getCountFromServer(tutorialesQ),

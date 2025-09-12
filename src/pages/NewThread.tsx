@@ -1,5 +1,7 @@
 import { useMemo, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/firebase";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Eye, EyeOff, Bold, Italic, Code, Hash, Paperclip, HelpCircle,
 } from "lucide-react";
@@ -27,6 +29,8 @@ export default function NewThread() {
   const [tags, setTags] = useState("ui, accesibilidad, rendimiento");
   const [content, setContent] = useState("");
   const [preview, setPreview] = useState(false);
+
+  const navigate = useNavigate();
 
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -72,12 +76,36 @@ export default function NewThread() {
     });
   };
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canCreate) return;
-    // MOCK: aquí iría tu lógica real de creación
-    alert("✅ (mock) Hilo creado. ¡Pronto conectamos Firestore!");
-  };
+  const onSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // Validación mínima
+  if (!title.trim() || !content.trim()) return;
+
+  // Crear hilo en Firestore
+  const ref = await addDoc(collection(db, "threads"), {
+    title: title.trim(),
+    body: content.trim(),
+    category,                                   // si luego no la usas, puedes omitirla
+    tags: tags
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 6),
+    status: "published",                        // para que salga en el feed si filtras por status
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    lastActivityAt: serverTimestamp(),
+    locked: false,
+    pinned: false,
+    views: 0,
+    repliesCount: 0,
+  });
+
+  // Ir al detalle del nuevo hilo
+  navigate(`/thread/${ref.id}`);
+};
+
 
   return (
     <div className="min-h-screen bg-slate-50">

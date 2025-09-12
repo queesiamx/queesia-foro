@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getSidebarCounts } from "@/services/forum";
 import { 
   Search, Plus, MessageSquare, Eye, Tag, Clock, Pin, CheckCircle2, ChevronDown, Filter, Users
 } from "lucide-react";
 import { motion } from "framer-motion";
+import TrendingReal from "@/components/TrendingReal";
 
 
 // --- Mock data ---
@@ -92,7 +94,7 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
         </div>
         <div className="hidden items-center gap-6 md:flex">
           <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/">Inicio</Link>
-          <a className="text-sm font-medium text-slate-700 hover:text-slate-900" href="#">Categorías</a>
+          <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/feed">Categorías</Link>
             <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/reglas">
     Reglas
   </Link>
@@ -170,7 +172,7 @@ function ThreadCard({ t }: { t: (typeof THREADS)[number] }) {
               <CheckCircle2 className="h-3 w-3" /> Resuelto</span>}
             <CatChip id={t.category} />
           </div>
-          <Link to={`/thread/${t.id}`} className="mt-2 block truncate text-lg font-semibold text-slate-900 hover:underline">
+        <Link to="/feed" className="mt-2 block truncate text-lg font-semibold text-slate-900 hover:underline">
             {t.title}
           </Link>
           <p className="mt-1 line-clamp-2 text-sm text-slate-600">{t.excerpt}</p>
@@ -196,7 +198,17 @@ function ThreadCard({ t }: { t: (typeof THREADS)[number] }) {
   );
 }
 
-function Sidebar({ onCreate }: { onCreate: () => void }) {
+    function Sidebar({ onCreate }: { onCreate: () => void }) {
+        const [counts, setCounts] = useState<{
+        trending: number; recientes: number; populares: number;
+        preguntas: number; tutoriales: number;
+      } | null>(null);
+
+      useEffect(() => {
+        getSidebarCounts().then(setCounts).catch(console.error);
+      }, []);
+
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -207,6 +219,22 @@ function Sidebar({ onCreate }: { onCreate: () => void }) {
           <Plus className="h-4 w-4" /> Crear tema
         </button>
       </div>
+
+        {/* Estadísticas reales (Firestore) */}
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h3 className="text-sm font-semibold text-slate-900">Estadísticas</h3>
+    {counts ? (
+      <ul className="mt-3 space-y-1 text-sm text-slate-700">
+        <li>Temas activos: <b>{counts.trending}</b></li>
+        <li>Recientes (7 días): <b>{counts.recientes}</b></li>
+        <li>Populares: <b>{counts.populares}</b></li>
+        <li>Preguntas: <b>{counts.preguntas}</b></li>
+        <li>Tutoriales: <b>{counts.tutoriales}</b></li>
+      </ul>
+    ) : (
+      <div className="mt-3 h-16 rounded-lg bg-slate-50 animate-pulse" />
+    )}
+  </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Categorías</h3>
@@ -258,7 +286,7 @@ function ForumMock() {
 
   const filtered = useMemo(() => threadsFilterSort(THREADS, q, category, onlySolved, sort), [q, category, onlySolved, sort]);
   const nav = useNavigate();
-  const handleCreate = () => nav("/new");
+  const handleCreate = () => nav("/nuevo");
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -281,9 +309,15 @@ function ForumMock() {
             </div>
           </div>
         </section>
-        <aside className="lg:col-span-4 xl:col-span-3">
+
+        <aside className="lg:col-span-4 xl:col-span-3 space-y-4">
+          {/* Bloque REAL desde Firestore */}
+          <TrendingReal title="Ahora mismo en la comunidad" pageSize={3} />
+
+          {/* Tus widgets mock tal cual */}
           <Sidebar onCreate={handleCreate} />
         </aside>
+
       </main>
 
       <footer className="border-t border-slate-200 bg-white/80">

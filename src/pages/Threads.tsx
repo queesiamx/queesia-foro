@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Thread } from "@/types/forum";
-import { getFirestore, collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { Link } from "react-router-dom";
 
 export default function Threads() {
   const [items, setItems] = useState<Thread[]>([]);
@@ -10,7 +11,6 @@ export default function Threads() {
     const db = getFirestore();
     const q = query(
       collection(db, "threads"),
-      where("status", "==", "published"),
       orderBy("createdAt", "desc"),
       limit(20)
     );
@@ -29,9 +29,10 @@ export default function Threads() {
         ))
       ) : (
         items.map((t) => (
-          <a key={t.id} href={`/thread/${t.id}`} className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300">
+          <Link key={t.id} to={`/thread/${t.id}`}
+            className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300">
             <div className="font-semibold">{t.title}</div>
-          </a>
+          </Link>
         ))
       )}
     </div>
