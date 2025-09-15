@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import TrendingReal from "@/components/TrendingReal";
-
+// RTC-CO (Home.tsx – imports)
+import UserMenu from "@/components/UserMenu";
 
 // --- Mock data ---
 const CATEGORIES = [
@@ -103,6 +104,8 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
           <button onClick={onCreate}
             className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-white bg-brand-grad-rev hover:brightness-95"> <Plus className="h-4 w-4" /> Crear tema
           </button>
+  
+            <UserMenu />
         </div>
       </div>
     </div>

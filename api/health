@@ -1,0 +1,32 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import * as admin from "firebase-admin";
+
+if (admin.apps.length === 0) {
+  admin.initializeApp(); // usa GOOGLE_APPLICATION_CREDENTIALS del .env
+}
+
+const app = express();
+app.use(express.json());
+app.use(cookieParser());
+
+// CORS
+const allowed = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: allowed.length ? allowed : true,
+  credentials: true,
+}));
+
+// Health
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, projectId: admin.app().options.projectId || "unknown" });
+});
+
+// … aquí irán /api/login, /api/logout, /api/me, etc.
+
+const port = Number(process.env.PORT || 8080);
+app.listen(port, () => {
+  console.log(`[bridge] listening on http://localhost:${port}`);
+});

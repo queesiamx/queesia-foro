@@ -1,3 +1,4 @@
+// src/pages/NewThread.tsx
 import { useMemo, useState, useRef } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebase";
@@ -5,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Eye, EyeOff, Bold, Italic, Code, Hash, Paperclip, HelpCircle,
 } from "lucide-react";
+import { requireAuth } from "@/services/auth";
 
 /** Opciones de categorías (mock) */
 const CATEGORIES = [
@@ -76,35 +78,58 @@ export default function NewThread() {
     });
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  // ⬇️ REEMPLAZA COMPLETO tu onSubmit por este
+const onSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  // Validación mínima
   if (!title.trim() || !content.trim()) return;
 
-  // Crear hilo en Firestore
-  const ref = await addDoc(collection(db, "threads"), {
+  // Sesión obligatoria
+  let s;
+  try {
+    s = await requireAuth();
+  } catch {
+    alert("Inicia sesión para publicar.");
+    return;
+  }
+
+  const now = serverTimestamp();
+  const data = {
     title: title.trim(),
     body: content.trim(),
-    category,                                   // si luego no la usas, puedes omitirla
+    category: category || "general",
     tags: tags
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean)
       .slice(0, 6),
-    status: "published",                        // para que salga en el feed si filtras por status
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    lastActivityAt: serverTimestamp(),
+
+    // timestamps / flags
+    createdAt: now,
+    updatedAt: now,
+    lastActivityAt: now,
     locked: false,
     pinned: false,
+
+    // contadores
     views: 0,
     repliesCount: 0,
-  });
+    upvotesCount: 0,
 
-  // Ir al detalle del nuevo hilo
-  navigate(`/thread/${ref.id}`);
+    // autor (sin undefined)
+    authorId: s.uid,
+    authorName: s.displayName ?? s.email ?? "Anónimo",
+    authorPhotoUrl: s.photoURL ?? null,
+  };
+
+  try {
+    const ref = await addDoc(collection(db, "threads"), data);
+    navigate(`/thread/${ref.id}`);
+  } catch (e: any) {
+    console.error("[addDoc] Firestore error:", e?.code, e?.message, e);
+    alert("No se pudo crear el hilo. Revisa consola para el detalle.");
+  }
 };
+
 
 
   return (
@@ -320,7 +345,7 @@ export default function NewThread() {
 
         {/* Sidebar */}
         <aside className="lg:col-span-4 space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sticky top-[88px]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 sticky top:[88px]">
             <div className="q-gradient -mx-4 -mt-4 rounded-t-xl px-4 py-3 text-white">
               <div className="text-sm font-semibold">Sugerencias</div>
             </div>

@@ -1,5 +1,7 @@
+// src/router/index.tsx — RTC-CO (protección de rutas /nuevo y /new)
 import { createBrowserRouter } from "react-router-dom";
 import React, { Suspense, lazy } from "react";
+import RequireAuth from "@/components/RequireAuth";
 
 const Layout    = lazy(() => import("@components/Layout"));
 const ForumMock = lazy(() => import("@pages/ForumMock"));   // landing mock
@@ -7,30 +9,51 @@ const Threads   = lazy(() => import("@pages/Threads"));     // feed real (Fireba
 const Thread    = lazy(() => import("@pages/Thread"));      // detalle real
 const NewThread = lazy(() => import("@pages/NewThread"));   // crear real
 const Rules     = lazy(() => import("@pages/Rules"));
-const Home      = lazy(() => import("@pages/Home"));      // ← Home dinámica (Firestore)
+const Home      = lazy(() => import("@pages/Home"));        // Home dinámica (Firestore)
 
 const Fallback = <div style={{ padding: 16 }}>Cargando…</div>;
+const S = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={Fallback}>{children}</Suspense>
+);
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <Suspense fallback={Fallback}>
+      <S>
         <Layout />
-      </Suspense>
+      </S>
     ),
     children: [
       // Home: maqueta
-      { index: true, element: <Suspense fallback={Fallback}><ForumMock/></Suspense> },
+      { index: true, element: <S><ForumMock /></S> },
 
       // Foro real
-      { path: "feed",       element: <Suspense fallback={Fallback}><Threads/></Suspense> },
-      { path: "thread/:id", element: <Suspense fallback={Fallback}><Thread/></Suspense> },
-      { path: "nuevo",      element: <Suspense fallback={Fallback}><NewThread/></Suspense> },
-      { path: "reglas",     element: <Suspense fallback={Fallback}><Rules/></Suspense> },
+      { path: "feed",       element: <S><Threads /></S> },
+      { path: "thread/:id", element: <S><Thread /></S> },
+      { path: "reglas",     element: <S><Rules /></S> },
 
-      { path: "live",       element: <Suspense fallback={Fallback}><Home/></Suspense> },
-    
+      // Home “live” (dinámica)
+      { path: "live",       element: <S><Home /></S> },
+
+      // Crear hilo (protegido) — español
+      {
+        path: "nuevo",
+        element: (
+          <RequireAuth>
+            <S><NewThread /></S>
+          </RequireAuth>
+        ),
+      },
+      // Crear hilo (protegido) — inglés
+      {
+        path: "new",
+        element: (
+          <RequireAuth>
+            <S><NewThread /></S>
+          </RequireAuth>
+        ),
+      },
     ],
   },
 ]);

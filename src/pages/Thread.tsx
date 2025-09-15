@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { db } from "@/firebase";
+import { getSession } from "@/services/auth";
 import {
   doc,
   onSnapshot,
@@ -100,21 +101,33 @@ export default function ThreadPage() {
   }, [id]);
 
   // Enviar respuesta
-  const onReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!db || !id || !reply.trim() || saving) return;
-    try {
-      setSaving(true);
-      await addDoc(collection(db, "posts"), {
-        threadId: id,
-        body: reply.trim(),
-        createdAt: serverTimestamp(),
-      });
-      setReply("");
-    } finally {
-      setSaving(false);
-    }
-  };
+// Enviar respuesta
+const onReply = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!db || !id || !reply.trim()) return;
+
+  try {
+    setSaving(true);
+
+    // ← obtiene la sesión para guardar autor
+    const { user } = await getSession();
+
+    await addDoc(collection(db, "posts"), {
+      threadId: id,
+      body: reply.trim(),
+      createdAt: serverTimestamp(),
+      authorId: user?.uid ?? null,
+      authorName: user?.displayName ?? user?.email ?? "Anónimo",
+      // opcional: guarda el avatar si lo quieres mostrar luego
+      // authorPhotoUrl: user?.photoURL ?? null,
+    });
+
+    setReply("");
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   if (thread === null) {
     return (
