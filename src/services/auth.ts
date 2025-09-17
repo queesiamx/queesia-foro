@@ -1,6 +1,7 @@
 // src/services/auth.ts  — RTC-CO
 // Único origen de Firebase en el cliente
 import { auth } from '@/firebase';
+import type { UserCredential } from "firebase/auth";
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -20,7 +21,7 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
 /* ==== Login / Logout básicos ==== */
-export function loginWithGoogle() {
+export function loginWithGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, provider);
 }
 export function logout() {
@@ -29,9 +30,7 @@ export function logout() {
 
 /* ==== Logout “en todos lados” (botón del Layout) ==== */
 export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
-  try {
-    await signOut(auth);
-  } catch (_) {}
+  try { await signOut(auth); } catch (_) {}
 
   // Limpia caches típicos de app (ajusta claves si usas otras)
   try {
@@ -47,9 +46,7 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
     } catch (_) {}
   }
 
-  if (opts?.hardReload) {
-    window.location.href = '/';
-  }
+  if (opts?.hardReload) window.location.href = '/';
 }
 
 /* ==== Observador de sesión ==== */
@@ -117,23 +114,29 @@ export async function requireAuth(): Promise<Session> {
 
 /* ==== Requerir sesión (si no hay, abre login con Google) ==== */
 export async function requireSession(): Promise<Session> {
-  // 1) intenta sesión actual
-  const s1 = await getSession();
-  if (s1) return s1;
+  // 1) ¿Ya hay sesión?
+  const now = await getSession();
+  if (now) return now;
 
-  // 2) si no hay, dispara popup de Google
+  // 2) Popup (una sola vez)
+  let cred: UserCredential;
   try {
-    await loginWithGoogle(); // devuelve UserCredential, pero no lo usamos aquí
-  } catch (err) {
-    // Popup cancelado/bloqueado o error de auth
-    throw new Error('AUTH_REQUIRED_POPUP_BLOCKED');
+    cred = await loginWithGoogle();
+  } catch {
+    // popup cerrado/bloqueado o error de auth
+    throw new Error("AUTH_REQUIRED_POPUP_BLOCKED");
   }
 
-  // 3) vuelve a leer la sesión ya autenticada
-  const s2 = await getSession();
-  if (!s2) throw new Error('AUTH_REQUIRED');
-  return s2;
+  // 3) Construye la sesión directo del resultado (sin esperar al observer)
+  const u = cred.user;
+  const token = await u.getIdToken();
+  return {
+    uid: u.uid,
+    email: u.email,
+    displayName: u.displayName,
+    photoURL: u.photoURL,
+    token,
+  };
 }
-
 
 export { auth };

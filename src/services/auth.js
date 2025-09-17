@@ -31,9 +31,8 @@ export async function logoutEverywhere(opts) {
         }
         catch (_) { }
     }
-    if (opts?.hardReload) {
+    if (opts?.hardReload)
         window.location.href = '/';
-    }
 }
 /* ==== Observador de sesión ==== */
 export function listenAuth(cb) {
@@ -90,22 +89,28 @@ export async function requireAuth() {
 }
 /* ==== Requerir sesión (si no hay, abre login con Google) ==== */
 export async function requireSession() {
-    // 1) intenta sesión actual
-    const s1 = await getSession();
-    if (s1)
-        return s1;
-    // 2) si no hay, dispara popup de Google
+    // 1) ¿Ya hay sesión?
+    const now = await getSession();
+    if (now)
+        return now;
+    // 2) Popup (una sola vez)
+    let cred;
     try {
-        await loginWithGoogle(); // devuelve UserCredential, pero no lo usamos aquí
+        cred = await loginWithGoogle();
     }
-    catch (err) {
-        // Popup cancelado/bloqueado o error de auth
-        throw new Error('AUTH_REQUIRED_POPUP_BLOCKED');
+    catch {
+        // popup cerrado/bloqueado o error de auth
+        throw new Error("AUTH_REQUIRED_POPUP_BLOCKED");
     }
-    // 3) vuelve a leer la sesión ya autenticada
-    const s2 = await getSession();
-    if (!s2)
-        throw new Error('AUTH_REQUIRED');
-    return s2;
+    // 3) Construye la sesión directo del resultado (sin esperar al observer)
+    const u = cred.user;
+    const token = await u.getIdToken();
+    return {
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        photoURL: u.photoURL,
+        token,
+    };
 }
 export { auth };
