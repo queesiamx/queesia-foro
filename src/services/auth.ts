@@ -115,4 +115,25 @@ export async function requireAuth(): Promise<Session> {
   return s;
 }
 
+/* ==== Requerir sesión (si no hay, abre login con Google) ==== */
+export async function requireSession(): Promise<Session> {
+  // 1) intenta sesión actual
+  const s1 = await getSession();
+  if (s1) return s1;
+
+  // 2) si no hay, dispara popup de Google
+  try {
+    await loginWithGoogle(); // devuelve UserCredential, pero no lo usamos aquí
+  } catch (err) {
+    // Popup cancelado/bloqueado o error de auth
+    throw new Error('AUTH_REQUIRED_POPUP_BLOCKED');
+  }
+
+  // 3) vuelve a leer la sesión ya autenticada
+  const s2 = await getSession();
+  if (!s2) throw new Error('AUTH_REQUIRED');
+  return s2;
+}
+
+
 export { auth };

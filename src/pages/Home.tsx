@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
 import { Link } from "react-router-dom";  // <-- usa Link
+// RTC-CO (Home.tsx – imports)
+import AuthBox from "@/components/AuthBox";
+
 
 function SkeletonList() {
   return (

@@ -6,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Eye, EyeOff, Bold, Italic, Code, Hash, Paperclip, HelpCircle,
 } from "lucide-react";
-import { requireAuth } from "@/services/auth";
+import { requireSession } from "@/services/auth";
 
 /** Opciones de categorías (mock) */
 const CATEGORIES = [
@@ -84,13 +84,7 @@ const onSubmit = async (e: React.FormEvent) => {
   if (!title.trim() || !content.trim()) return;
 
   // Sesión obligatoria
-  let s;
-  try {
-    s = await requireAuth();
-  } catch {
-    alert("Inicia sesión para publicar.");
-    return;
-  }
+  const s = await requireSession();
 
   const now = serverTimestamp();
   const data = {
@@ -111,7 +105,7 @@ const onSubmit = async (e: React.FormEvent) => {
     pinned: false,
 
     // contadores
-    views: 0,
+    viewsCount: 0,
     repliesCount: 0,
     upvotesCount: 0,
 
@@ -153,15 +147,16 @@ const onSubmit = async (e: React.FormEvent) => {
                 {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 {preview ? "Ocultar preview" : "Ver preview"}
               </button>
-              <button
-                onClick={onSubmit}
+             <button
+              type="submit"
+                form="new-thread-form"
                 disabled={!canCreate}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white shadow-sm ${
                   canCreate ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
                 }`}
               >
                 Publicar
-              </button>
+            </button>
             </span>
           </div>
         </div>
@@ -170,7 +165,7 @@ const onSubmit = async (e: React.FormEvent) => {
       {/* Contenido */}
       <div className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Formulario */}
-        <form onSubmit={onSubmit} className="lg:col-span-8 space-y-4">
+        <form id="new-thread-form" onSubmit={onSubmit} className="lg:col-span-8 space-y-4">
           {/* Título */}
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <label className="block text-sm font-medium text-slate-800">Título</label>

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { db } from "@/firebase";
-import { getSession } from "@/services/auth";
+import { requireSession } from "@/services/auth";
 import {
   doc,
   onSnapshot,
@@ -109,15 +109,15 @@ const onReply = async (e: React.FormEvent) => {
   try {
     setSaving(true);
 
-    // ← obtiene la sesión para guardar autor
-    const { user } = await getSession();
+   // ← obtiene la sesión para guardar autor (getSession() devuelve Session, no { user })
+    const s = await requireSession();
 
     await addDoc(collection(db, "posts"), {
       threadId: id,
       body: reply.trim(),
       createdAt: serverTimestamp(),
-      authorId: user?.uid ?? null,
-      authorName: user?.displayName ?? user?.email ?? "Anónimo",
+      authorId: s.uid,
+      authorName: s.displayName ?? s.email ?? "Anónimo",
       // opcional: guarda el avatar si lo quieres mostrar luego
       // authorPhotoUrl: user?.photoURL ?? null,
     });
