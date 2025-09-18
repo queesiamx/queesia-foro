@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+   "noEmit": true,
+    "isolatedModules": true,
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
-import { Link } from "react-router-dom";  // <-- usa Link
+import { Link } from "react-router-dom"; // <-- usa Link
 // RTC-CO (Home.tsx – imports)
 import AuthBox from "@/components/AuthBox";
-
 
 function SkeletonList() {
   return (
@@ -27,18 +26,20 @@ function Empty() {
   );
 }
 
-
 export default function Home() {
   const [items, setItems] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const off = watchTrendingThreads((rows) => {
-       setItems(rows);
-       setLoading(false);
-     }, { pageSize: 12 });
-     return () => off();
-   }, []);
+    const off = watchTrendingThreads(
+      (rows) => {
+        setItems(rows);
+        setLoading(false);
+      },
+      { pageSize: 12 }
+    );
+    return () => off();
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -57,7 +58,7 @@ export default function Home() {
         ) : items.length === 0 ? (
           <Empty />
         ) : (
-          items.map((t) => <PostCard key={t.id} t={t} />)
+          items.map((t) => <PostCard key={(t as any).id} t={t} />)
         )}
       </div>
 
@@ -74,17 +75,20 @@ export default function Home() {
 }
 
 function PostCard({ t }: { t: Thread }) {
-  const letter = (t.title?.[0] || "U").toUpperCase();
+  const id = (t as any).id ?? "";
+  const href = `/thread/${encodeURIComponent(String(id))}`;
+  const title = (t as any).title ?? "Sin título";
+  const letter = (title[0] || "U").toUpperCase();
 
-    // Normaliza nombres de campos sin cambiar el tipo global
-  const replies = (t as any).repliesCount ?? 0;
-  const views   = (t as any).views ?? (t as any).viewsCount ?? 0;
-  const upvotes = (t as any).upvotesCount ?? 0;
+  // Normaliza nombres de campos sin cambiar el tipo global
+  const replies = Number((t as any).repliesCount ?? 0);
+  const views = Number((t as any).viewsCount ?? (t as any).views ?? 0);
+  const upvotes = Number((t as any).upvotesCount ?? 0);
+  const tags: string[] = (t as any).tags ?? [];
 
-
-    return (
+  return (
     <Link
-      to={`/thread/${t.id}`}
+      to={href} // ⬅️ usa el detalle /thread/:id
       className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300"
     >
       <div className="flex items-start gap-3">
@@ -93,11 +97,13 @@ function PostCard({ t }: { t: Thread }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs mb-1">
-            {(t.tags ?? []).slice(0, 4).map((tg) => (
-              <span key={tg} className="rounded-full bg-slate-100 px-2 py-0.5">#{tg}</span>
+            {tags.slice(0, 4).map((tg) => (
+              <span key={tg} className="rounded-full bg-slate-100 px-2 py-0.5">
+                #{tg}
+              </span>
             ))}
           </div>
-          <div className="font-semibold hover:underline truncate">{t.title}</div>
+          <div className="font-semibold hover:underline truncate">{title}</div>
           <div className="mt-1 flex items-center gap-4 text-xs text-slate-600">
             <span>💬 {replies}</span>
             <span>👁 {views}</span>
