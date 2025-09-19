@@ -1,3 +1,17 @@
+/* ——— Footer fijo (mismo alto que queesia.com) ——— */
+:root {
+  --footer-h: 96px;             /* desktop */
+}
+
+@media (max-width: 640px) {
+  --footer-h: 112px;            /* móvil un poco más alto */
+}
+
+/* reserva espacio para que no tape contenido */
+body {
+  padding-bottom: var(--footer-h);
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;

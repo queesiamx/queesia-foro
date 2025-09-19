@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getSidebarCounts, watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
+import Footer from "@/components/Footer";
 import {
   Search,
   Plus,
@@ -99,9 +100,6 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
         <div className="hidden items-center gap-6 md:flex">
           <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/">
             Inicio
-          </Link>
-          <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/feed">
-            Categorías
           </Link>
           <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/reglas">
             Reglas
@@ -512,23 +510,7 @@ function ForumMock() {
           <Sidebar onCreate={handleCreate} />
         </aside>
       </main>
-
-      <footer className="border-t border-slate-200 bg-white/80">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-6 text-sm text-slate-500">
-          <p>© {new Date().getFullYear()} Queesia · Comunidad</p>
-          <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-slate-700">
-              Privacidad
-            </a>
-            <a href="#" className="hover:text-slate-700">
-              Términos
-            </a>
-            <a href="https://queesia.com/contacto" className="hover:text-slate-700">
-              Contacto
-            </a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
