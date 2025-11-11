@@ -47,9 +47,11 @@ export default function TrendingReal({
 
 function ThreadRow({ t }: { t: Thread }) {
   const letter = (t.title?.[0] || "U").toUpperCase();
-  const replies = (t as any).repliesCount ?? 0;
-  const views   = (t as any).views ?? (t as any).viewsCount ?? 0;
-  const upvotes = (t as any).upvotesCount ?? 0;
+  // #RTC_CO — contadores normalizados (prioriza nuevos campos)
+  const replies = Number((t as any).repliesCount ?? (t as any).commentsCount ?? 0);
+  const views   = Number((t as any).viewsCount   ?? (t as any).views         ?? 0);
+  const upvotes = Number((t as any).upvotesCount ?? (t as any).likesCount    ?? 0);
+
 
   return (
     <Link

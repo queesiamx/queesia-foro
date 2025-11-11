@@ -4,15 +4,8 @@ import { Link, useParams } from "react-router-dom";
 import { db } from "@/firebase";
 import { requireSession } from "@/services/auth";
 import {
-  doc,
-  updateDoc,
-  increment,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  orderBy,
-  addDoc,
+  doc, updateDoc, increment,
+  onSnapshot, collection, query, where, orderBy, addDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -93,16 +86,18 @@ export default function ThreadPage() {
     };
   }, [id]);
 
-  // 🔹 Sumar view una sola vez cuando el hilo está listo
-  useEffect(() => {
+// 🔹 Sumar view una sola vez cuando el hilo está listo (sin API)
+useEffect(() => {
   if (hitOnce.current || !thread?.id) return;
   hitOnce.current = true;
+
   const ref = doc(db, "threads", thread.id);
   updateDoc(ref, {
     viewsCount: increment(1),
     lastViewAt: serverTimestamp(),
   }).catch(() => {});
-  }, [thread?.id]);
+}, [thread?.id]);
+
 
   // Enviar respuesta
 // Enviar respuesta
@@ -151,7 +146,7 @@ const onReply = async (e: React.FormEvent) => {
   }
 
   const repliesShown = thread.repliesCount ?? posts.length;
-  const viewsShown = thread.views ?? thread.viewsCount ?? 0;
+  const viewsShown = thread.viewsCount ?? thread.views ?? 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">

@@ -16,7 +16,7 @@ type AnyThread = Thread & Record<string, any>;
 export default function NowWidget({
   title = "Ahora mismo en la comunidad",
   take = 3,
-  linkAllHref = "/threads", // ajusta si tu ruta es /temas
+  linkAllHref = "/feed", // #RTC_CO — tu listado vive en /feed
 }: Props) {
   const [items, setItems] = useState<Thread[] | null>(null);
 
@@ -54,7 +54,8 @@ export default function NowWidget({
             const t = raw as AnyThread;
             const title = String(t.title ?? "Sin título");
             const replies = Number(t.repliesCount ?? t.commentsCount ?? 0);
-            const views = Number(t.viewsCount ?? 0);
+            // #RTC_CO — vistas con fallback al campo viejo
+            const views = Number(t.viewsCount ?? t.views ?? 0);
             const likes = Number(t.upvotesCount ?? t.likesCount ?? 0);
 
             return (

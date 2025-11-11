@@ -417,7 +417,7 @@ function ForumMock() {
       pinned: !!any.pinned,
       solved: any.status === "resolved" || !!any.resolved,
       replies: Number(any.repliesCount ?? any.commentsCount ?? 0),
-      views: Number(any.viewsCount ?? 0),
+      views: Number(any.viewsCount ?? any.views ?? 0),
     };
   }
 
