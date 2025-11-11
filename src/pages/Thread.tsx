@@ -5,6 +5,8 @@ import { db } from "@/firebase";
 import { requireSession } from "@/services/auth";
 import {
   doc,
+  updateDoc,
+  increment,
   onSnapshot,
   collection,
   query,
@@ -93,13 +95,13 @@ export default function ThreadPage() {
 
   // 🔹 Sumar view una sola vez cuando el hilo está listo
   useEffect(() => {
-    if (hitOnce.current || !thread?.id) return;
-    hitOnce.current = true;
-    fetch("/api/hit-thread", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: thread.id }),
-    }).catch(() => {});
+  if (hitOnce.current || !thread?.id) return;
+  hitOnce.current = true;
+  const ref = doc(db, "threads", thread.id);
+  updateDoc(ref, {
+    viewsCount: increment(1),
+    lastViewAt: serverTimestamp(),
+  }).catch(() => {});
   }, [thread?.id]);
 
   // Enviar respuesta
@@ -124,11 +126,11 @@ const onReply = async (e: React.FormEvent) => {
       // authorPhotoUrl: user?.photoURL ?? null,
     });
 
-    // 🔹 Notifica al backend para aumentar repliesCount y lastActivityAt
-    fetch("/api/on-post-create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: id }),
+      // 🔹 Suma el contador de respuestas en el hilo (sin backend)
+    const threadRef = doc(db, "threads", id);
+    updateDoc(threadRef, {
+      repliesCount: increment(1),
+      lastActivityAt: serverTimestamp(),
     }).catch(() => {});   
 
     setReply("");
