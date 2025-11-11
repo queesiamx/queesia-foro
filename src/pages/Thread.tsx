@@ -1,5 +1,5 @@
 // src/pages/Thread.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { db } from "@/firebase";
 import { requireSession } from "@/services/auth";
@@ -14,14 +14,10 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import {
-  MessageSquare,
-  Eye,
-  Bookmark,
-  CheckCircle2,
-  ThumbsUp,
-} from "lucide-react";
 
+import { MessageSquare, Eye, Bookmark,
+ CheckCircle2, ThumbsUp } from "lucide-react";
+import { renderSafe } from "@/utils/safeRender";
 /* ----------------------------- Tipos locales ----------------------------- */
 type TThread = {
   id: string;
@@ -56,14 +52,7 @@ const fmt = (d?: Date) =>
       }).format(d)
     : "—";
 
-/** Render súper ligero de “markdown” (negritas, itálicas, code, saltos de línea) */
-function mdLight(s: string) {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/_(.+?)_/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/\n/g, "<br/>");
-}
+//(Se reemplaza mdLight por renderSafe que usa marked + DOMPurify)
 
 /* --------------------------------- Página -------------------------------- */
 export default function ThreadPage() {
@@ -72,6 +61,8 @@ export default function ThreadPage() {
   const [posts, setPosts] = useState<TPost[]>([]);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
+  // evita dobles hits a la API
+  const hitOnce = useRef(false);
 
   // Suscripciones en vivo
   useEffect(() => {
@@ -100,6 +91,17 @@ export default function ThreadPage() {
     };
   }, [id]);
 
+  // 🔹 Sumar view una sola vez cuando el hilo está listo
+  useEffect(() => {
+    if (hitOnce.current || !thread?.id) return;
+    hitOnce.current = true;
+    fetch("/api/hit-thread", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: thread.id }),
+    }).catch(() => {});
+  }, [thread?.id]);
+
   // Enviar respuesta
 // Enviar respuesta
 const onReply = async (e: React.FormEvent) => {
@@ -121,6 +123,13 @@ const onReply = async (e: React.FormEvent) => {
       // opcional: guarda el avatar si lo quieres mostrar luego
       // authorPhotoUrl: user?.photoURL ?? null,
     });
+
+    // 🔹 Notifica al backend para aumentar repliesCount y lastActivityAt
+    fetch("/api/on-post-create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: id }),
+    }).catch(() => {});   
 
     setReply("");
   } finally {
@@ -172,12 +181,11 @@ const onReply = async (e: React.FormEvent) => {
         <h1 className="text-xl md:text-2xl font-semibold text-slate-900">
           {thread?.title ?? "Sin título"}
         </h1>
-        {thread?.body && (
-          <p
-            className="mt-3 text-[15px] leading-6 text-slate-700"
-            dangerouslySetInnerHTML={{ __html: mdLight(thread.body) }}
-          />
+       {thread?.body && (
+          
+          <div className="prose max-w-none" dangerouslySetInnerHTML={renderSafe(thread.body)} />
         )}
+
 
         {/* Métricas / acciones */}
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -268,10 +276,9 @@ function PostCard({ p }: { p: TPost }) {
             )}
           </div>
 
-          <div
+         <div
             className="prose prose-slate max-w-none text-sm leading-6"
-            // Si no usas @tailwindcss/typography, igual se ve bien.
-            dangerouslySetInnerHTML={{ __html: mdLight(p.body) }}
+            dangerouslySetInnerHTML={renderSafe(p.body)}
           />
 
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
