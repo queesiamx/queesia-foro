@@ -6,8 +6,9 @@ import { requireSession } from "@/services/auth";
 import {
   doc, updateDoc, increment,
   onSnapshot, collection, query, where, orderBy, addDoc,
-  serverTimestamp,
-  Timestamp,
+  getDocs,      // 👈 nuevo
+  deleteDoc,    // 👈 nuevoserverTimestamp,
+  serverTimestamp,Timestamp,
 } from "firebase/firestore";
 
 import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp } from "lucide-react";
@@ -308,6 +309,51 @@ function PostCard({ p, thread }: { p: TPost; thread: TThread }) {
 
   const isBest = thread?.bestPostId === p.id;
 
+  // 👍 Like / Unlike
+  const [liking, setLiking] = useState(false);
+
+  const handleLike = async () => {
+    if (liking) return;
+    try {
+      setLiking(true);
+      const s = await requireSession(); // pide login si no lo hay
+
+      // 1) ¿Ya existe voto de este usuario para este post?
+      const votesCol = collection(db, "post_votes");
+      const q = query(
+        votesCol,
+        where("postId", "==", p.id),
+        where("userId", "==", s.uid)
+      );
+      const snap = await getDocs(q);
+
+      const postRef = doc(db, "posts", p.id);
+
+      if (!snap.empty) {
+        // Ya había voto → quitarlo
+        await Promise.all([
+          deleteDoc(snap.docs[0].ref),
+          updateDoc(postRef, { upvotes: increment(-1) }),
+        ]);
+      } else {
+        // No había voto → crearlo
+        await Promise.all([
+          addDoc(votesCol, {
+            postId: p.id,
+            userId: s.uid,
+            createdAt: serverTimestamp(),
+          }),
+          updateDoc(postRef, { upvotes: increment(1) }),
+        ]);
+      }
+      // El contador se actualiza solo por el onSnapshot de posts
+    } catch (err) {
+      console.error("Error al hacer like:", err);
+    } finally {
+      setLiking(false);
+    }
+  };
+
   // #RTC_CO — F1.3: marcar / desmarcar mejor respuesta
   const toggleBest = async () => {
     try {
@@ -350,15 +396,23 @@ function PostCard({ p, thread }: { p: TPost; thread: TThread }) {
             )}
           </div>
 
-         <div
+          <div
             className="prose prose-slate max-w-none text-sm leading-6"
             dangerouslySetInnerHTML={renderSafe(p.body)}
           />
 
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-            <button className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50">
+            {/* 👍 Like */}
+            <button
+              type="button"
+              onClick={handleLike}
+              disabled={liking}
+              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+            >
               <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
             </button>
+
+            {/* Responder (luego lo mejoramos si quieres) */}
             <button className="rounded-lg border px-2 py-1 hover:bg-slate-50">
               Responder
             </button>
