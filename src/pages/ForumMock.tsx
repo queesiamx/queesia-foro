@@ -240,11 +240,12 @@ function ThreadCard({ t }: { t: CardData }) {
             </span>
             <div className="hidden h-3 w-px bg-slate-200 sm:block" />
             <div className="flex flex-wrap items-center gap-1">
-              {t.tags.map((tag) => (
-                <span key={tag} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-700">
-                  #{tag}
-                </span>
-              ))}
+              {(t.tags ?? []).map((tag, i) => (
+            <span key={`${tag}-${i}`} className="rounded-md bg-slate-100 px-1.5 py-0.5">
+              #{tag}
+            </span>
+          ))}
+
             </div>
           </div>
         </div>
@@ -413,7 +414,14 @@ function ForumMock() {
       createdAt: ago(created),
       lastActivity: { by: any.lastActorName ?? "", when: ago(lastAct) },
       category: any.category ?? "general",
-      tags: any.tags ?? [],
+      // Después (limpia espacios, quita vacíos y deduplica):
+      tags: Array.from(
+        new Set(
+          (any.tags ?? [])
+            .map((x: any) => String(x).trim())
+            .filter(Boolean)
+        )
+      ),
       pinned: !!any.pinned,
       solved: any.status === "resolved" || !!any.resolved,
       replies: Number(any.repliesCount ?? any.commentsCount ?? 0),

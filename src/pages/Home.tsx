@@ -81,8 +81,8 @@ function PostCard({ t }: { t: Thread }) {
   const letter = (title[0] || "U").toUpperCase();
 
   // Normaliza nombres de campos sin cambiar el tipo global
-  const replies = Number((t as any).repliesCount ?? 0);
-  const views = Number((t as any).viewsCount ?? (t as any).views ?? 0);
+ const replies = Number((t as any).repliesCount ?? (t as any).commentsCount ?? 0);
+ const views   = Number((t as any).viewsCount   ?? (t as any).views         ?? 0);
   const upvotes = Number((t as any).upvotesCount ?? 0);
   const tags: string[] = (t as any).tags ?? [];
 

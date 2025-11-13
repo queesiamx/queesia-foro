@@ -10,12 +10,15 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-import { MessageSquare, Eye, Bookmark,
- CheckCircle2, ThumbsUp } from "lucide-react";
+import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp } from "lucide-react";
+// #RTC_CO — F1.2 seguir hilo (sin AuthContext)
+import { toggleFollow, watchFollowCount } from "@/services/follow";
+
 import { renderSafe } from "@/utils/safeRender";
 /* ----------------------------- Tipos locales ----------------------------- */
 type TThread = {
   id: string;
+  authorId?: string; // #RTC_CO — autor del hilo (para permisos de "Mejor respuesta")
   title?: string;
   body?: string;
   tags?: string[];
@@ -24,6 +27,9 @@ type TThread = {
   repliesCount?: number;
   views?: number;
   viewsCount?: number; // por si tu doc usa este nombre
+  // #RTC_CO — F1.3: mejor respuesta
+  bestPostId?: string;
+
 };
 
 type TPost = {
@@ -135,30 +141,33 @@ const onReply = async (e: React.FormEvent) => {
 };
 
 
-  if (thread === null) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
-          Hilo no encontrado.
-        </div>
-      </div>
-    );
-  }
+  // #RTC_CO — F1.3: sube la mejor respuesta al inicio
+// IMPORTANT: este hook debe llamarse SIEMPRE (sin returns tempranos antes)
+const orderedPosts = useMemo(() => {
+  if (!thread?.bestPostId || !posts.length) return posts;
+  const best = posts.find((p) => p.id === thread.bestPostId);
+  const rest = posts.filter((p) => p.id !== thread.bestPostId);
+  return best ? [best, ...rest] : posts;
+}, [posts, thread?.bestPostId]);
 
-  const repliesShown = thread.repliesCount ?? posts.length;
-  const viewsShown = thread.viewsCount ?? thread.views ?? 0;
+const repliesShown = (thread?.repliesCount ?? posts.length);
+const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-      {/* Header del hilo */}
-      <header className="rounded-2xl border border-slate-200 bg-white p-5">
+      {/* Si no existe el hilo, muestra aviso y no intentes pintar su contenido */}
+      {thread === null ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
+          Hilo no encontrado.
+        </div>
+      ) : (
+        <>
+        {/* Header del hilo */}
+        <header className="rounded-2xl border border-slate-200 bg-white p-5">
         {/* Chips / estados */}
         <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
-          {(thread.tags ?? []).map((tg) => (
-            <span
-              key={tg}
-              className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700"
-            >
+           {(thread.tags ?? []).map((tg, i) => (
+             <span key={`${tg}-${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
               #{tg}
             </span>
           ))}
@@ -192,7 +201,9 @@ const onReply = async (e: React.FormEvent) => {
           <span className="inline-flex items-center gap-1">
             <Eye className="h-3.5 w-3.5" /> {viewsShown}
           </span>
-          <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 hover:bg-slate-50">
+          {/* #RTC_CO — F1.2: botón Seguir */}
+          {thread?.id && <FollowButton threadId={thread.id} />}
+           <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 hover:bg-slate-50">
             <Bookmark className="h-3.5 w-3.5" /> Guardar
           </button>
           <Link to="/feed" className="hover:underline">
@@ -207,9 +218,9 @@ const onReply = async (e: React.FormEvent) => {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-600">
             Aún no hay respuestas.
           </div>
-        ) : (
-          posts.map((p) => <PostCard key={p.id} p={p} />)
-        )}
+      ) : (
+          orderedPosts.map((p) => <PostCard key={p.id} p={p} thread={thread!} />)
+      )}
       </section>
 
       {/* Editor de respuesta */}
@@ -226,32 +237,89 @@ const onReply = async (e: React.FormEvent) => {
           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400"
           rows={5}
           placeholder="Comparte tu solución, código y contexto…"
-          disabled={thread.locked}
+          disabled={thread?.locked}
         />
         <div className="mt-3 flex items-center justify-end gap-2">
           <button
             type="submit"
-            disabled={saving || thread.locked || !reply.trim()}
+            disabled={saving || thread?.locked || !reply.trim()}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {saving ? "Enviando…" : "Responder"}
           </button>
         </div>
       </form>
+        </>
+      )}
     </div>
   );
 }
 
 /* --------------------------- Subcomponentes UI --------------------------- */
 
-function PostCard({ p }: { p: TPost }) {
+// #RTC_CO — F1.2: componente FollowButton (sin AuthContext)
+function FollowButton({ threadId }: { threadId: string }) {
+  const [count, setCount] = useState(0);
+  const [following, setFollowing] = useState(false);
+
+  // contador en vivo
+  useEffect(() => {
+    if (!threadId) return;
+    const off = watchFollowCount(threadId, setCount);
+    return () => off();
+  }, [threadId]);
+
+  const onClick = async () => {
+    try {
+      // obliga a iniciar sesión solo al intentar seguir
+      const s = await requireSession(); // devuelve { uid, displayName, email, ... }
+      const res = await toggleFollow(s.uid, threadId);
+      setFollowing(res.following);
+    } catch {
+      // si el usuario cancela login, simplemente no cambia UI
+    }
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 ${
+        following ? "bg-violet-600 text-white" : "hover:bg-slate-50"
+      }`}
+      title={following ? "Dejar de seguir" : "Seguir hilo"}
+    >
+      {following ? "Siguiendo" : "Seguir"} · {count}
+    </button>
+  );
+}
+
+function PostCard({ p, thread }: { p: TPost; thread: TThread }) {
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
 
+  const isBest = thread?.bestPostId === p.id;
+
+  // #RTC_CO — F1.3: marcar / desmarcar mejor respuesta
+  const toggleBest = async () => {
+    try {
+      const s = await requireSession(); // pide login si no lo hay
+      if (!thread?.id) return;
+      if (thread?.authorId && s.uid !== thread.authorId) {
+        // no eres el autor del hilo
+        return;
+      }
+      await updateDoc(doc(db, "threads", thread.id), {
+        bestPostId: isBest ? null : p.id,
+      });
+    } catch {
+      // usuario canceló login o error silencioso
+    }
+  };
+
   return (
     <article
-      className={`rounded-2xl border bg-white p-4 ${
-        p.isAnswer ? "border-emerald-300" : "border-slate-200"
+      className={`rounded-2xl bg-white p-4 border ${
+        isBest ? "border-emerald-300 ring-1 ring-emerald-200" : "border-slate-200"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -266,7 +334,7 @@ function PostCard({ p }: { p: TPost }) {
             </span>
             <span className="text-slate-400">•</span>
             <span>{when}</span>
-            {p.isAnswer && (
+            {isBest && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta aceptada
               </span>
@@ -285,6 +353,16 @@ function PostCard({ p }: { p: TPost }) {
             <button className="rounded-lg border px-2 py-1 hover:bg-slate-50">
               Responder
             </button>
+         {/* #RTC_CO — F1.3: botón visible, lógica valida autor al hacer click */}
+              <button
+                onClick={toggleBest}
+                className={`rounded-lg border px-2 py-1 ${
+                  isBest ? "bg-emerald-600 text-white hover:bg-emerald-700" : "hover:bg-slate-50"
+                }`}
+                title="Solo el autor del hilo puede marcar la mejor respuesta"
+              >
+                {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
+              </button>
           </div>
         </div>
       </div>

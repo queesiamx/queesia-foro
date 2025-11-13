@@ -15,7 +15,7 @@ type AnyThread = Thread & Record<string, any>;
 
 export default function NowWidget({
   title = "Ahora mismo en la comunidad",
-  take = 3,
+  take = 5,
   linkAllHref = "/feed", // #RTC_CO — tu listado vive en /feed
 }: Props) {
   const [items, setItems] = useState<Thread[] | null>(null);
@@ -60,7 +60,7 @@ export default function NowWidget({
 
             return (
               <Link
-                to={`/thread/${t.id}`} // ajusta si tu detalle usa otra ruta
+                to={`/t/${t.id}`} // ajusta si tu detalle usa otra ruta 
                 key={t.id}
                 className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition"
               >
