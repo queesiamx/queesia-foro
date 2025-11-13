@@ -62,8 +62,7 @@ export default function ThreadPage() {
   const [posts, setPosts] = useState<TPost[]>([]);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
-  // evita dobles hits a la API
-  const hitOnce = useRef(false);
+
 
   // Suscripciones en vivo
   useEffect(() => {
@@ -92,10 +91,19 @@ export default function ThreadPage() {
     };
   }, [id]);
 
-// 🔹 Sumar view una sola vez cuando el hilo está listo (sin API)
+// 🔹 Sumar view una sola vez por sesión de navegador
 useEffect(() => {
-  if (hitOnce.current || !thread?.id) return;
-  hitOnce.current = true;
+  if (!thread?.id || !db) return;
+
+  // clave única por hilo
+  const key = `thread-viewed-${thread.id}`;
+
+  // window solo existe en el cliente
+  if (typeof window !== "undefined") {
+    // si ya contamos esta vista en esta sesión, no vuelvas a sumar
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+  }
 
   const ref = doc(db, "threads", thread.id);
   updateDoc(ref, {
@@ -103,6 +111,7 @@ useEffect(() => {
     lastViewAt: serverTimestamp(),
   }).catch(() => {});
 }, [thread?.id]);
+
 
 
   // Enviar respuesta
