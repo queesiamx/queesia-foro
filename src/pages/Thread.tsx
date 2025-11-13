@@ -64,6 +64,9 @@ export default function ThreadPage() {
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // 👇 NUEVO: referencia al textarea de respuesta
+  const replyBoxRef = useRef<HTMLTextAreaElement | null>(null);
+
 
   // Suscripciones en vivo
   useEffect(() => {
@@ -163,6 +166,24 @@ const orderedPosts = useMemo(() => {
 const repliesShown = (thread?.repliesCount ?? posts.length);
 const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
+// Cuando haces click en "Responder" en una tarjeta
+const handleReplyClick = (authorName?: string) => {
+  if (!replyBoxRef.current) return;
+
+  const mention = authorName ? `@${authorName} ` : "";
+
+  // añade la mención al texto actual (abajo del todo)
+  setReply((prev) => (prev ? `${prev}\n${mention}` : mention));
+
+  // foco + scroll al textarea
+  replyBoxRef.current.focus();
+  replyBoxRef.current.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+};
+
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Si no existe el hilo, muestra aviso y no intentes pintar su contenido */}
@@ -229,7 +250,15 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
             Aún no hay respuestas.
           </div>
       ) : (
-          orderedPosts.map((p) => <PostCard key={p.id} p={p} thread={thread!} />)
+          orderedPosts.map((p) => (
+        <PostCard
+          key={p.id}
+          p={p}
+          thread={thread!}
+          onReplyClick={() => handleReplyClick(p.authorName)}
+        />
+      ))
+
       )}
       </section>
 
@@ -242,6 +271,7 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
           Escribe una respuesta
         </label>
         <textarea
+          ref={replyBoxRef}  
           value={reply}
           onChange={(e) => setReply(e.target.value)}
           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400"
@@ -303,7 +333,15 @@ function FollowButton({ threadId }: { threadId: string }) {
   );
 }
 
-function PostCard({ p, thread }: { p: TPost; thread: TThread }) {
+    function PostCard({
+      p,
+      thread,
+      onReplyClick,
+    }: {
+      p: TPost;
+      thread: TThread;
+      onReplyClick: () => void;
+    }) {
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
 
@@ -402,31 +440,40 @@ function PostCard({ p, thread }: { p: TPost; thread: TThread }) {
           />
 
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-            {/* 👍 Like */}
-            <button
-              type="button"
-              onClick={handleLike}
-              disabled={liking}
-              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
-            </button>
+  {/* 👍 Like */}
+  <button
+    type="button"
+    onClick={handleLike}
+    disabled={liking}
+    className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+  >
+    <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
+  </button>
 
-            {/* Responder (luego lo mejoramos si quieres) */}
-            <button className="rounded-lg border px-2 py-1 hover:bg-slate-50">
-              Responder
-            </button>
-         {/* #RTC_CO — F1.3: botón visible, lógica valida autor al hacer click */}
-              <button
-                onClick={toggleBest}
-                className={`rounded-lg border px-2 py-1 ${
-                  isBest ? "bg-emerald-600 text-white hover:bg-emerald-700" : "hover:bg-slate-50"
-                }`}
-                title="Solo el autor del hilo puede marcar la mejor respuesta"
-              >
-                {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
-              </button>
-          </div>
+  {/* Responder: baja al textarea y mete la mención */}
+    <button
+      type="button"
+      onClick={onReplyClick}
+      className="rounded-lg border px-2 py-1 hover:bg-slate-50"
+    >
+      Responder
+    </button>
+
+
+  {/* #RTC_CO — F1.3: botón visible, lógica valida autor al hacer click */}
+  <button
+    onClick={toggleBest}
+    className={`rounded-lg border px-2 py-1 ${
+      isBest
+        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+        : "hover:bg-slate-50"
+    }`}
+    title="Solo el autor del hilo puede marcar la mejor respuesta"
+  >
+    {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
+  </button>
+</div>
+
         </div>
       </div>
     </article>
