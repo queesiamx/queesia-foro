@@ -4,12 +4,21 @@ import { Link, useParams } from "react-router-dom";
 import { db } from "@/firebase";
 import { requireSession } from "@/services/auth";
 import {
-  doc, updateDoc, increment,
-  onSnapshot, collection, query, where, orderBy, addDoc,
-  getDocs,      // 👈 nuevo
-  deleteDoc,    // 👈 nuevoserverTimestamp,
-  serverTimestamp,Timestamp,
+  doc,
+  updateDoc,
+  increment,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  orderBy,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
+
 
 import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp } from "lucide-react";
 // #RTC_CO — F1.2 seguir hilo (sin AuthContext)
@@ -40,7 +49,11 @@ type TPost = {
   createdAt?: Timestamp | Date;
   isAnswer?: boolean;
   upvotes?: number;
+  // 🔹 Rastro de a quién responde
+  parentPostId?: string | null;
+  parentAuthorName?: string | null;
 };
+
 
 /* ---------------------------- Utilidades UI/UX --------------------------- */
 const toDate = (d?: Date | Timestamp): Date | undefined =>
@@ -64,8 +77,15 @@ export default function ThreadPage() {
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // 👇 NUEVO: referencia al textarea de respuesta
+  // 🔹 textarea de respuesta
   const replyBoxRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // 🔹 a qué post / autor estoy respondiendo
+  const [replyingTo, setReplyingTo] = useState<{
+    id: string;
+    authorName: string;
+  } | null>(null);
+
 
 
   // Suscripciones en vivo
@@ -117,41 +137,62 @@ useEffect(() => {
 }, [thread?.id]);
 
 
+    // Cuando hago clic en "Responder" en un post concreto
+  const handleReplyClick = (post: TPost) => {
+    const author = post.authorName ?? "Usuario";
+    // Mención automática
+    setReply(`@${author} `);
+    setReplyingTo({ id: post.id, authorName: author });
+
+    // Baja al textarea y enfoca
+    if (replyBoxRef.current) {
+      replyBoxRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      replyBoxRef.current.focus();
+    }
+  };
+
+
 
   // Enviar respuesta
-// Enviar respuesta
-const onReply = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!db || !id || !reply.trim()) return;
 
-  try {
-    setSaving(true);
+  const onReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db || !id || !reply.trim()) return;
 
-   // ← obtiene la sesión para guardar autor (getSession() devuelve Session, no { user })
-    const s = await requireSession();
+    try {
+      setSaving(true);
 
-    await addDoc(collection(db, "posts"), {
-      threadId: id,
-      body: reply.trim(),
-      createdAt: serverTimestamp(),
-      authorId: s.uid,
-      authorName: s.displayName ?? s.email ?? "Anónimo",
-      // opcional: guarda el avatar si lo quieres mostrar luego
-      // authorPhotoUrl: user?.photoURL ?? null,
-    });
+      const s = await requireSession();
 
-      // 🔹 Suma el contador de respuestas en el hilo (sin backend)
-    const threadRef = doc(db, "threads", id);
-    updateDoc(threadRef, {
-      repliesCount: increment(1),
-      lastActivityAt: serverTimestamp(),
-    }).catch(() => {});   
+      await addDoc(collection(db, "posts"), {
+        threadId: id,
+        body: reply.trim(),
+        createdAt: serverTimestamp(),
+        authorId: s.uid,
+        authorName: s.displayName ?? s.email ?? "Anónimo",
+        // 🔹 rastro de a quién respondí
+        parentPostId: replyingTo?.id ?? null,
+        parentAuthorName: replyingTo?.authorName ?? null,
+      });
 
-    setReply("");
-  } finally {
-    setSaving(false);
-  }
-};
+      // 🔹 actualiza contador del hilo
+      const threadRef = doc(db, "threads", id);
+      updateDoc(threadRef, {
+        repliesCount: increment(1),
+        lastActivityAt: serverTimestamp(),
+      }).catch(() => {});
+
+      setReply("");
+      setReplyingTo(null);   // ✅ deja de mostrar el banner “respondiendo a…”
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
 
 
   // #RTC_CO — F1.3: sube la mejor respuesta al inicio
@@ -166,22 +207,6 @@ const orderedPosts = useMemo(() => {
 const repliesShown = (thread?.repliesCount ?? posts.length);
 const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
-// Cuando haces click en "Responder" en una tarjeta
-const handleReplyClick = (authorName?: string) => {
-  if (!replyBoxRef.current) return;
-
-  const mention = authorName ? `@${authorName} ` : "";
-
-  // añade la mención al texto actual (abajo del todo)
-  setReply((prev) => (prev ? `${prev}\n${mention}` : mention));
-
-  // foco + scroll al textarea
-  replyBoxRef.current.focus();
-  replyBoxRef.current.scrollIntoView({
-    behavior: "smooth",
-    block: "center",
-  });
-};
 
 
   return (
@@ -244,22 +269,21 @@ const handleReplyClick = (authorName?: string) => {
       </header>
 
       {/* Respuestas */}
-      <section className="space-y-3">
+        <section className="space-y-3">
         {posts.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-600">
             Aún no hay respuestas.
           </div>
-      ) : (
+        ) : (
           orderedPosts.map((p) => (
-        <PostCard
-          key={p.id}
-          p={p}
-          thread={thread!}
-          onReplyClick={() => handleReplyClick(p.authorName)}
-        />
-      ))
-
-      )}
+            <PostCard
+              key={p.id}
+              p={p}
+              thread={thread!}
+              onReplyClick={() => handleReplyClick(p)} // 👈 AQUÍ
+            />
+          ))
+        )}
       </section>
 
       {/* Editor de respuesta */}
@@ -342,6 +366,7 @@ function FollowButton({ threadId }: { threadId: string }) {
       thread: TThread;
       onReplyClick: () => void;
     }) {
+
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
 
@@ -434,6 +459,14 @@ function FollowButton({ threadId }: { threadId: string }) {
             )}
           </div>
 
+          {p.parentPostId && p.parentAuthorName && (
+            <div className="mb-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs text-slate-600">
+              En respuesta a{" "}
+              <span className="font-semibold">@{p.parentAuthorName}</span>
+            </div>
+          )}
+
+          {/* AQUÍ VA LA FRANJITA 👇 */}
           <div
             className="prose prose-slate max-w-none text-sm leading-6"
             dangerouslySetInnerHTML={renderSafe(p.body)}
