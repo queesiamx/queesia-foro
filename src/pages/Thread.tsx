@@ -1,8 +1,11 @@
 // src/pages/Thread.tsx
 import React, { useRef, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { db } from "@/firebase";
+import { db, auth } from "@/firebase";
 import { requireSession } from "@/services/auth";
+
+import { onAuthStateChanged } from "firebase/auth";
+
 import {
   doc,
   updateDoc,
@@ -22,7 +25,11 @@ import {
 
 import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp } from "lucide-react";
 // #RTC_CO — F1.2 seguir hilo (sin AuthContext)
-import { toggleFollow, watchFollowCount } from "@/services/follow";
+import {
+  toggleFollow,
+  watchFollowCount,
+  watchIsFollowing,
+} from "@/services/follow";
 
 import { renderSafe } from "@/utils/safeRender";
 /* ----------------------------- Tipos locales ----------------------------- */
@@ -321,41 +328,90 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
 /* --------------------------- Subcomponentes UI --------------------------- */
 
-// #RTC_CO — F1.2: componente FollowButton (sin AuthContext)
-function FollowButton({ threadId }: { threadId: string }) {
-  const [count, setCount] = useState(0);
-  const [following, setFollowing] = useState(false);
+type FollowButtonProps = {
+  threadId: string;
+};
 
-  // contador en vivo
+function FollowButton({ threadId }: FollowButtonProps) {
+  const [count, setCount] = useState<number>(0);
+  const [following, setFollowing] = useState<boolean>(false);
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
     if (!threadId) return;
-    const off = watchFollowCount(threadId, setCount);
-    return () => off();
+
+    // 👁 contador global de seguidores del hilo
+    const offCount = watchFollowCount(threadId, (n) => {
+      setCount(n ?? 0);
+    });
+
+    // ✅ estado “¿yo sigo este hilo?”
+    let offFollow: (() => void) | null = null;
+
+    const offAuth = onAuthStateChanged(auth, (user) => {
+      // limpiamos suscripción anterior
+      if (offFollow) {
+        offFollow();
+        offFollow = null;
+      }
+
+      if (!user) {
+        // sin sesión → no sigue (hasta que dé clic y se loguee)
+        setFollowing(false);
+        return;
+      }
+
+      offFollow = watchIsFollowing(user.uid, threadId, (is) => {
+        setFollowing(!!is);
+      });
+    });
+
+    return () => {
+      offCount();
+      offAuth();
+      if (offFollow) offFollow();
+    };
   }, [threadId]);
 
-  const onClick = async () => {
+  const handleClick = async () => {
     try {
-      // obliga a iniciar sesión solo al intentar seguir
-      const s = await requireSession(); // devuelve { uid, displayName, email, ... }
+      setBusy(true);
+      const s = await requireSession(); // abre login si no hay
       const res = await toggleFollow(s.uid, threadId);
-      setFollowing(res.following);
-    } catch {
-      // si el usuario cancela login, simplemente no cambia UI
+      if (res) {
+        setFollowing(!!res.following);
+        // si en el futuro toggleFollow te devuelve count, lo usamos:
+        if (typeof (res as any).count === "number") {
+          setCount((res as any).count);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
     }
   };
 
+  const label = following ? "Siguiendo" : "Seguir";
+  const displayCount = Number.isFinite(count) ? count : 0;
+
   return (
     <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 ${
-        following ? "bg-violet-600 text-white" : "hover:bg-slate-50"
-      }`}
-      title={following ? "Dejar de seguir" : "Seguir hilo"}
+      type="button"
+      onClick={handleClick}
+      disabled={busy}
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs ${
+        following
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      } disabled:opacity-60`}
     >
-      {following ? "Siguiendo" : "Seguir"} · {count}
+      <span>{label}</span>
+      <span className="text-[11px] text-slate-500">· {displayCount}</span>
     </button>
   );
 }
+
 
     function PostCard({
       p,
@@ -457,6 +513,7 @@ function FollowButton({ threadId }: { threadId: string }) {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta aceptada
               </span>
             )}
+
           </div>
 
           {p.parentPostId && p.parentAuthorName && (

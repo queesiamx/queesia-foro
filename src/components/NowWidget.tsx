@@ -1,8 +1,8 @@
 // src/components/NowWidget.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { watchSidebarNowThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
+import { watchTrendingThreads } from "@/services/forum";
 import { MessageCircle, Eye, Flame } from "lucide-react";
 
 type Props = {
@@ -15,82 +15,86 @@ type AnyThread = Thread & Record<string, any>;
 
 export default function NowWidget({
   title = "Ahora mismo en la comunidad",
-  take = 5,
-  linkAllHref = "/feed", // #RTC_CO — tu listado vive en /feed
+  take = 3,
+  linkAllHref = "/feed",
 }: Props) {
   const [items, setItems] = useState<Thread[] | null>(null);
 
   useEffect(() => {
-    // ✅ la función devuelve el unsubscribe directamente
-    const off = watchSidebarNowThreads(setItems, { take });
+    // Usamos el mismo origen que el listado principal,
+    // pero recortamos a `take` resultados.
+    const off = watchTrendingThreads(
+      (rows) => {
+        setItems(rows.slice(0, take));
+      },
+      { pageSize: take }
+    );
     return off;
   }, [take]);
 
+  const isLoading = items === null;
+  const hasItems = !!items && items.length > 0;
+
   return (
-    <aside className="rounded-xl border bg-white">
-      <div className="px-4 py-3 border-b">
-        <h3 className="text-sm font-semibold">{title}</h3>
+    <aside className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        <Flame className="h-4 w-4 text-amber-500" />
       </div>
 
-      <div className="p-2 space-y-2">
-        {items === null ? (
-          // Skeletons
-          Array.from({ length: take }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-lg border p-3">
-              <div className="h-4 w-3/4 bg-gray-200 rounded" />
-              <div className="mt-2 flex gap-3">
-                <div className="h-3 w-8 bg-gray-200 rounded" />
-                <div className="h-3 w-8 bg-gray-200 rounded" />
-                <div className="h-3 w-8 bg-gray-200 rounded" />
-              </div>
-            </div>
-          ))
-        ) : items.length === 0 ? (
-          <div className="text-sm text-gray-500 p-3">
-            Aún no hay actividad reciente.
-          </div>
-        ) : (
-          items.map((raw) => {
-            const t = raw as AnyThread;
-            const title = String(t.title ?? "Sin título");
-            const replies = Number(t.repliesCount ?? t.commentsCount ?? 0);
-            // #RTC_CO — vistas con fallback al campo viejo
-            const views = Number(t.viewsCount ?? t.views ?? 0);
-            const likes = Number(t.upvotesCount ?? t.likesCount ?? 0);
+      {isLoading && (
+        <div className="space-y-2">
+          {Array.from({ length: take }).map((_, i) => (
+            <div
+              key={i}
+              className="h-10 rounded-lg bg-slate-100 animate-pulse"
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && !hasItems && (
+        <p className="text-xs text-slate-500">
+          Aún no hay actividad reciente.
+        </p>
+      )}
+
+      {hasItems && (
+        <ul className="space-y-2">
+          {(items as AnyThread[]).map((t) => {
+            const id = t.id ?? (t as any).id;
+            const title = t.title ?? "Sin título";
+            const replies = Number(t.repliesCount ?? 0);
+            const views = Number(t.viewsCount ?? (t as any).views ?? 0);
 
             return (
-              <Link
-                to={`/t/${t.id}`} // ajusta si tu detalle usa otra ruta 
-                key={t.id}
-                className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{title}</p>
-                  <div className="mt-1 flex items-center gap-4 text-xs text-gray-500">
+              <li key={id}>
+                <Link
+                  to={`/thread/${encodeURIComponent(String(id))}`}
+                  className="block rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                >
+                  <div className="text-xs font-medium text-slate-900 line-clamp-2">
+                    {title}
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1">
-                      <MessageCircle size={14} />
-                      {replies}
+                      <MessageCircle className="h-3 w-3" /> {replies}
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <Eye size={14} />
-                      {views}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Flame size={14} />
-                      {likes}
+                      <Eye className="h-3 w-3" /> {views}
                     </span>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              </li>
             );
-          })
-        )}
-      </div>
+          })}
+        </ul>
+      )}
 
-      <div className="px-4 py-3 border-t">
+      <div className="pt-1">
         <Link
           to={linkAllHref}
-          className="text-sm font-medium text-violet-600 hover:underline"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:underline"
         >
           Ver todos los temas →
         </Link>

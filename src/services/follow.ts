@@ -35,3 +35,28 @@ export function watchIsFollowing(userId:string, threadId:string, cb:(v:boolean)=
   return onSnapshot(q, (snap) => cb(!snap.empty));
 }
 
+// ...
+
+/**
+ * Observa todos los hilos que sigue un usuario.
+ * Llama a cb con un arreglo de IDs de hilo.
+ */
+export function watchUserFollowedThreads(
+  userId: string,
+  cb: (threadIds: string[]) => void
+) {
+  const q = query(
+    collection(db, "thread_follows"),
+    where("userId", "==", userId)
+  );
+
+  return onSnapshot(q, (snap) => {
+    const ids = snap.docs
+      .map((doc) => {
+        const data = doc.data() as any;
+        return data.threadId as string;
+      })
+      .filter(Boolean);
+    cb(ids);
+  });
+}

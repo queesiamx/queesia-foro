@@ -2,7 +2,10 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getSidebarCounts, watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
-import Footer from "@/components/Footer";
+import { auth } from "@/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { watchIsFollowing } from "@/services/follow";
+
 import {
   Search,
   Plus,
@@ -20,7 +23,7 @@ import { motion } from "framer-motion";
 import NowWidget from "@/components/NowWidget";
 // RTC-CO (Home.tsx – imports)
 import UserMenu from "@/components/UserMenu";
-
+import Footer from "@/components/Footer";
 // --- Mock data ---
 const CATEGORIES = [
   { id: "all", name: "Todas", color: "bg-slate-200 text-slate-700" },
@@ -74,10 +77,18 @@ type CardData = {
   category: string;
   tags: string[];
   pinned: boolean;
+
+  // 👇 NUEVOS estados derivados
+  isNew: boolean;
+  isTrending: boolean;
+  isSolved: boolean;
+
+  // 👇 lo de siempre (mantenemos solved por compatibilidad)
   solved: boolean;
   replies: number;
   views: number;
 };
+
 
 // --- UI pieces ---
 function Navbar({ onCreate }: { onCreate: () => void }) {
@@ -193,8 +204,35 @@ function FiltersBar({
 }
 
 // Reemplaza TODO el componente por esta versión
+// Reemplaza TODO el componente por esta versión
 function ThreadCard({ t }: { t: CardData }) {
   const threadHref = `/thread/${encodeURIComponent(String(t.id))}`;
+
+  // Seguimiento: quién está logueado y si sigue este hilo
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  // Escucha cambios de sesión
+  useEffect(() => {
+    const off = onAuthStateChanged(auth, (user) => {
+      setUserId(user ? user.uid : null);
+    });
+    return () => off();
+  }, []);
+
+  // Escucha si el usuario sigue este hilo
+  useEffect(() => {
+    if (!userId) {
+      setIsFollowing(false);
+      return;
+    }
+
+    const off = watchIsFollowing(userId, String(t.id), (v) => {
+      setIsFollowing(!!v);
+    });
+
+    return () => off();
+  }, [userId, t.id]);
 
   return (
     <motion.div
@@ -204,51 +242,79 @@ function ThreadCard({ t }: { t: CardData }) {
       className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-start gap-4">
-        <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 text-white font-semibold">
-          {t.author.name[0]}
+        <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white font-semibold">
+          {t.author.name[0]?.toUpperCase() ?? "U"}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {t.pinned && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                <Pin className="h-3 w-3" /> Fijado
-              </span>
-            )}
-            {t.solved && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                <CheckCircle2 className="h-3 w-3" /> Resuelto
-              </span>
-            )}
-            <CatChip id={t.category} />
-          </div>
 
-          {/* ⬇️ AQUI el cambio: /thread/:id (antes estaba /feed) */}
-    <Link
-      to={threadHref}  // ⬅️ antes era "/feed"
-      className="mt-2 block truncate text-lg font-semibold text-slate-900 hover:underline"
-    >
-      {t.title}
-    </Link>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+  {t.pinned && (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+      <Pin className="h-3 w-3" /> Fijado
+    </span>
+  )}
+
+  {t.isNew && (
+    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+      Nuevo
+    </span>
+  )}
+
+  {t.isTrending && (
+    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+      Tendencia
+    </span>
+  )}
+
+  {t.isSolved && (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+      <CheckCircle2 className="h-3 w-3" /> Respondido
+    </span>
+  )}
+
+  <CatChip id={t.category} />
+</div>
+
+
+          {/* ⬇️ Enlace al detalle del hilo */}
+          <Link
+            to={threadHref}
+            className="mt-2 block truncate text-lg font-semibold text-slate-900 hover:underline"
+          >
+            {t.title}
+          </Link>
 
           <p className="mt-1 line-clamp-2 text-sm text-slate-600">{t.excerpt}</p>
+
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" /> {t.author.name} <span className="text-slate-400">·</span> {t.createdAt}
+              <Users className="h-3 w-3" /> {t.author.name}{" "}
+              <span className="text-slate-400">·</span> {t.createdAt}
             </span>
             <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Última act.: {t.lastActivity.by} · {t.lastActivity.when}
+              <Clock className="h-3 w-3" /> Última act.: {t.lastActivity.by} ·{" "}
+              {t.lastActivity.when}
             </span>
             <div className="hidden h-3 w-px bg-slate-200 sm:block" />
             <div className="flex flex-wrap items-center gap-1">
               {(t.tags ?? []).map((tag, i) => (
-            <span key={`${tag}-${i}`} className="rounded-md bg-slate-100 px-1.5 py-0.5">
-              #{tag}
-            </span>
-          ))}
+                <span
+                  key={`${tag}-${i}`}
+                  className="rounded-md bg-slate-100 px-1.5 py-0.5"
+                >
+                  #{tag}
+                </span>
+              ))}
 
+              {isFollowing && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                  ✓ Siguiendo
+                </span>
+              )}
             </div>
           </div>
         </div>
+
         <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
           <div className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
             <MessageSquare className="h-3.5 w-3.5" /> {t.replies}
@@ -258,12 +324,10 @@ function ThreadCard({ t }: { t: CardData }) {
           </div>
         </div>
       </div>
-
-      {/* (Opcional) Haz toda la tarjeta clickeable sin romper los botones internos */}
-      {/* <Link to={threadHref} className="absolute inset-0" aria-label={t.title} /> */}
     </motion.div>
   );
 }
+
 
 
 function Sidebar({ onCreate }: { onCreate: () => void }) {
@@ -399,35 +463,74 @@ function ForumMock() {
 
   // Normaliza un Thread (Firestore) a CardData (lo que pinta ThreadCard)
   function toCardData(t: Thread): CardData {
-    const any = t as any;
-    const created = any.createdAt;
-    const lastAct = any.lastActivityAt ?? any.updatedAt ?? created;
-    return {
-      id: any.id,
-      title: any.title ?? "Sin título",
-      excerpt: any.excerpt ?? any.summary ?? "",
-      author: {
-        name: any.authorName ?? any.author?.name ?? "Usuario",
-        handle: any.author?.handle ?? "",
-        avatar: any.author?.avatarUrl ?? null,
-      },
-      createdAt: ago(created),
-      lastActivity: { by: any.lastActorName ?? "", when: ago(lastAct) },
-      category: any.category ?? "general",
-      // Después (limpia espacios, quita vacíos y deduplica):
-      tags: Array.from(
-        new Set(
-          (any.tags ?? [])
-            .map((x: any) => String(x).trim())
-            .filter(Boolean)
-        )
-      ),
-      pinned: !!any.pinned,
-      solved: any.status === "resolved" || !!any.resolved,
-      replies: Number(any.repliesCount ?? any.commentsCount ?? 0),
-      views: Number(any.viewsCount ?? any.views ?? 0),
-    };
-  }
+  const any = t as any;
+  const created = any.createdAt;
+  const lastAct = any.lastActivityAt ?? any.updatedAt ?? created;
+
+  // 🔹 Normalizamos fechas a Date para poder calcular horas
+  const createdDate =
+    created?.toDate?.() ??
+    (created instanceof Date ? created : created ? new Date(created) : new Date());
+
+  const lastDate =
+    lastAct?.toDate?.() ??
+    (lastAct instanceof Date ? lastAct : lastAct ? new Date(lastAct) : new Date());
+
+  const now = new Date();
+  const hoursSinceCreated =
+    (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+  const hoursSinceLast =
+    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60);
+
+  // 🔹 Métricas
+  const replies = Number(any.repliesCount ?? any.commentsCount ?? 0);
+  const views = Number(any.viewsCount ?? any.views ?? 0);
+
+  // 🔹 Estados derivados
+  const isSolved =
+    Boolean(any.bestPostId) ||
+    any.status === "resolved" ||
+    !!any.resolved;
+
+  const isNew = hoursSinceCreated <= 24; // < 24h desde que se creó
+
+  const isTrending =
+    (replies >= 3 && hoursSinceLast <= 24) ||
+    (views >= 30 && hoursSinceLast <= 24);
+
+  return {
+    id: any.id,
+    title: any.title ?? "Sin título",
+    excerpt: any.excerpt ?? any.summary ?? "",
+    author: {
+      name: any.authorName ?? any.author?.name ?? "Usuario",
+      handle: any.author?.handle ?? "",
+      avatar: any.author?.avatarUrl ?? null,
+    },
+    createdAt: ago(created),
+    lastActivity: { by: any.lastActorName ?? "", when: ago(lastAct) },
+    category: any.category ?? "general",
+    tags: Array.from(
+      new Set(
+        (any.tags ?? [])
+          .map((x: any) => String(x).trim())
+          .filter(Boolean)
+      )
+    ),
+    pinned: !!any.pinned,
+
+    // 👇 nuevos flags
+    isNew,
+    isTrending,
+    isSolved,
+
+    // 👇 mantenemos `solved` apuntando a lo mismo
+    solved: isSolved,
+    replies,
+    views,
+  };
+}
+
 
   // Aplica filtros/orden al arreglo real y mapea a CardData
   const filteredReal = useMemo(() => {
@@ -512,7 +615,7 @@ function ForumMock() {
 
         <aside className="lg:col-span-4 xl:col-span-3 space-y-4">
           {/* Ahora mismo en la comunidad (Firestore) */}
-          <NowWidget take={3} linkAllHref="/threads" />
+          <NowWidget take={3} linkAllHref="/feed" />
 
           {/* Tus widgets mock tal cual */}
           <Sidebar onCreate={handleCreate} />
