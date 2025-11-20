@@ -10,6 +10,7 @@ const Thread    = lazy(() => import("@pages/Thread"));      // detalle real
 const NewThread = lazy(() => import("@pages/NewThread"));   // crear real
 const Rules     = lazy(() => import("@pages/Rules"));
 const Home      = lazy(() => import("@pages/Home"));        // Home dinámica (Firestore)
+const UserProfilePage = lazy(() => import("@pages/UserProfile"));
 
 const Fallback = <div style={{ padding: 16 }}>Cargando…</div>;
 const S = ({ children }: { children: React.ReactNode }) => (
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       // Foro real
       { path: "feed",       element: <S><Threads /></S> },
       { path: "thread/:id", element: <S><Thread /></S> },
+      { path: "u/:uid", element: <S><UserProfilePage /></S> },
       { path: "reglas",     element: <S><Rules /></S> },
 
       // Home “live” (dinámica)
