@@ -5,6 +5,7 @@ import { db, auth } from "@/firebase";
 import { requireSession } from "@/services/auth";
 
 import { onAuthStateChanged } from "firebase/auth";
+import { getLastReadAt, touchLastRead } from "@/services/threadReads";
 
 import {
   doc,
@@ -84,6 +85,11 @@ export default function ThreadPage() {
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
 
+    // 👇 NUEVOS estados para “último leído”
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [firstUnreadPostId, setFirstUnreadPostId] = useState<string | null>(null);
+
+
   // 🔹 textarea de respuesta
   const replyBoxRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -122,16 +128,24 @@ export default function ThreadPage() {
     };
   }, [id]);
 
+    // 🔹 Quién está logueado (para “primer no leído”)
+  useEffect(() => {
+    const off = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user ? user.uid : null);
+    });
+    return () => off();
+  }, []);
+
+
 // 🔹 Sumar view una sola vez por sesión de navegador
 useEffect(() => {
   if (!thread?.id || !db) return;
 
-  // clave única por hilo
+  console.log("🔁 useEffect views ejecutado para", thread.id);
+
   const key = `thread-viewed-${thread.id}`;
 
-  // window solo existe en el cliente
   if (typeof window !== "undefined") {
-    // si ya contamos esta vista en esta sesión, no vuelvas a sumar
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, "1");
   }
@@ -141,7 +155,67 @@ useEffect(() => {
     viewsCount: increment(1),
     lastViewAt: serverTimestamp(),
   }).catch(() => {});
-}, [thread?.id]);
+}, [thread]);   // 👈 AQUÍ EL ARREGLO
+
+
+
+    // 🔹 Calcular el primer post no leído para este usuario/hilo
+  useEffect(() => {
+    if (!currentUserId || !thread?.id || posts.length === 0) {
+      setFirstUnreadPostId(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const lastReadAt = await getLastReadAt(currentUserId, thread.id);
+        if (cancelled) return;
+
+        // Primera vez: no marcamos separador todavía
+        if (!lastReadAt) {
+          setFirstUnreadPostId(null);
+          await touchLastRead(currentUserId, thread.id);
+          return;
+        }
+
+        const lastReadDate = lastReadAt.toDate();
+
+        const firstUnread = posts.find((p) => {
+          const created =
+            p.createdAt instanceof Timestamp
+              ? p.createdAt.toDate()
+              : p.createdAt;
+          return !!created && created > lastReadDate;
+        });
+
+        setFirstUnreadPostId(firstUnread ? firstUnread.id : null);
+
+        // Actualizamos “última lectura”
+        await touchLastRead(currentUserId, thread.id);
+      } catch (err) {
+        console.error("Error al calcular firstUnreadPostId:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, thread?.id, posts]);
+
+    // 🔹 Cuando ya tenemos identificado el primer no leído, hacemos scroll automático
+  useEffect(() => {
+    if (!firstUnreadPostId) return; // si no hay, no hacemos nada
+
+    const el = document.getElementById(`post-${firstUnreadPostId}`);
+    if (!el) return;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [firstUnreadPostId]);
 
 
     // Cuando hago clic en "Responder" en un post concreto
@@ -278,19 +352,22 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
       {/* Respuestas */}
         <section className="space-y-3">
         {posts.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-600">
-            Aún no hay respuestas.
-          </div>
-        ) : (
-          orderedPosts.map((p) => (
-            <PostCard
-              key={p.id}
-              p={p}
-              thread={thread!}
-              onReplyClick={() => handleReplyClick(p)} // 👈 AQUÍ
-            />
-          ))
-        )}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-600">
+          Aún no hay respuestas.
+        </div>
+      ) : (
+        orderedPosts.map((p) => (
+          <PostCard
+            key={p.id}
+            p={p}
+            thread={thread!}
+            onReplyClick={() => handleReplyClick(p)}
+            isFirstUnread={p.id === firstUnreadPostId}
+          />
+        ))
+      )}
+
+
       </section>
 
       {/* Editor de respuesta */}
@@ -414,19 +491,33 @@ function FollowButton({ threadId }: FollowButtonProps) {
 
 
     function PostCard({
-      p,
-      thread,
-      onReplyClick,
-    }: {
-      p: TPost;
-      thread: TThread;
-      onReplyClick: () => void;
-    }) {
-
+  p,
+  thread,
+  onReplyClick,
+  isFirstUnread,
+}: {
+  p: TPost;
+  thread: TThread;
+  onReplyClick: () => void;
+  isFirstUnread?: boolean;
+}) {
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
 
   const isBest = thread?.bestPostId === p.id;
+
+  // Ref del artículo para hacer scroll al primer no leído
+  const rootRef = useRef<HTMLElement | null>(null);
+
+  // 🔹 Scroll automático cuando este post es el primer no leído
+  useEffect(() => {
+    if (isFirstUnread && rootRef.current) {
+      rootRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [isFirstUnread]);
 
   // 👍 Like / Unlike
   const [liking, setLiking] = useState(false);
@@ -490,12 +581,15 @@ function FollowButton({ threadId }: FollowButtonProps) {
     }
   };
 
-  return (
+    return (
     <article
+      id={`post-${p.id}`}
+      ref={rootRef}
       className={`rounded-2xl bg-white p-4 border ${
         isBest ? "border-emerald-300 ring-1 ring-emerald-200" : "border-slate-200"
       }`}
     >
+
       <div className="flex items-start gap-3">
         <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white grid place-items-center text-sm font-bold">
           {letter}
@@ -513,7 +607,6 @@ function FollowButton({ threadId }: FollowButtonProps) {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Respuesta aceptada
               </span>
             )}
-
           </div>
 
           {p.parentPostId && p.parentAuthorName && (
@@ -523,47 +616,63 @@ function FollowButton({ threadId }: FollowButtonProps) {
             </div>
           )}
 
-          {/* AQUÍ VA LA FRANJITA 👇 */}
+          {/* 🔹 Separador visual para el primer post no leído */}
+          {isFirstUnread && (
+            <button
+              type="button"
+              onClick={() => {
+                if (rootRef.current) {
+                  rootRef.current.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
+                }
+              }}
+              className="mb-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Nuevas respuestas desde tu última visita
+            </button>
+          )}
+
           <div
             className="prose prose-slate max-w-none text-sm leading-6"
             dangerouslySetInnerHTML={renderSafe(p.body)}
           />
 
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-  {/* 👍 Like */}
-  <button
-    type="button"
-    onClick={handleLike}
-    disabled={liking}
-    className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-  >
-    <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
-  </button>
+            {/* 👍 Like */}
+            <button
+              type="button"
+              onClick={handleLike}
+              disabled={liking}
+              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
+            </button>
 
-  {/* Responder: baja al textarea y mete la mención */}
-    <button
-      type="button"
-      onClick={onReplyClick}
-      className="rounded-lg border px-2 py-1 hover:bg-slate-50"
-    >
-      Responder
-    </button>
+            {/* Responder: baja al textarea y mete la mención */}
+            <button
+              type="button"
+              onClick={onReplyClick}
+              className="rounded-lg border px-2 py-1 hover:bg-slate-50"
+            >
+              Responder
+            </button>
 
-
-  {/* #RTC_CO — F1.3: botón visible, lógica valida autor al hacer click */}
-  <button
-    onClick={toggleBest}
-    className={`rounded-lg border px-2 py-1 ${
-      isBest
-        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-        : "hover:bg-slate-50"
-    }`}
-    title="Solo el autor del hilo puede marcar la mejor respuesta"
-  >
-    {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
-  </button>
-</div>
-
+            {/* #RTC_CO — F1.3: mejor respuesta */}
+            <button
+              onClick={toggleBest}
+              className={`rounded-lg border px-2 py-1 ${
+                isBest
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "hover:bg-slate-50"
+              }`}
+              title="Solo el autor del hilo puede marcar la mejor respuesta"
+            >
+              {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
+            </button>
+          </div>
         </div>
       </div>
     </article>

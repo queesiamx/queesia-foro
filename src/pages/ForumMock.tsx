@@ -486,11 +486,15 @@ function ForumMock() {
   const replies = Number(any.repliesCount ?? any.commentsCount ?? 0);
   const views = Number(any.viewsCount ?? any.views ?? 0);
 
-  // 🔹 Estados derivados
+
+  // normalizamos el status a string genérico
+  const status = String(any.status ?? "").toLowerCase();
+
   const isSolved =
     Boolean(any.bestPostId) ||
-    any.status === "resolved" ||
+    status === "resolved" ||   // ahora compara contra un string normal
     !!any.resolved;
+
 
   const isNew = hoursSinceCreated <= 24; // < 24h desde que se creó
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Thread } from "@/types/forum";
 import { watchTrendingThreads } from "@/services/forum";
-import { MessageCircle, Eye, Flame } from "lucide-react";
+import { MessageCircle, Eye, Flame, CheckCircle2 } from "lucide-react";
 
 type Props = {
   title?: string;
@@ -12,6 +12,45 @@ type Props = {
 };
 
 type AnyThread = Thread & Record<string, any>;
+
+// 👇 Mismo cálculo de estados que en ForumMock/Home
+function deriveFlags(t: AnyThread) {
+  const any = t as AnyThread;
+  const created = any.createdAt;
+  const lastAct = any.lastActivityAt ?? any.updatedAt ?? created;
+
+  const toDate = (v: any) =>
+    v?.toDate?.() ??
+    (v instanceof Date ? v : v ? new Date(v) : new Date());
+
+  const createdDate = toDate(created);
+  const lastDate = toDate(lastAct);
+  const now = new Date();
+
+  const hoursSinceCreated =
+    (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+  const hoursSinceLast =
+    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60);
+
+  const replies = Number(any.repliesCount ?? any.commentsCount ?? 0);
+  const views = Number(any.viewsCount ?? any.views ?? 0);
+
+  // normalizamos el status a string genérico
+  const status = String(any.status ?? "").toLowerCase();
+
+  const isSolved =
+    Boolean(any.bestPostId) ||
+    status === "resolved" ||   // ahora compara contra un string normal
+    !!any.resolved;
+
+
+  const isNew = hoursSinceCreated <= 24;
+  const isTrending =
+    (replies >= 3 && hoursSinceLast <= 24) ||
+    (views >= 30 && hoursSinceLast <= 24);
+
+  return { isNew, isTrending, isSolved };
+}
 
 export default function NowWidget({
   title = "Ahora mismo en la comunidad",
@@ -67,12 +106,34 @@ export default function NowWidget({
             const replies = Number(t.repliesCount ?? 0);
             const views = Number(t.viewsCount ?? (t as any).views ?? 0);
 
+            const { isNew, isTrending, isSolved } = deriveFlags(t);
+
             return (
               <li key={id}>
                 <Link
                   to={`/thread/${encodeURIComponent(String(id))}`}
                   className="block rounded-lg px-2 py-1.5 hover:bg-slate-50"
                 >
+                  {/* mini-chips de estado */}
+                  <div className="mb-0.5 flex items-center gap-1 text-[10px]">
+                    {isNew && (
+                      <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-sky-700">
+                        Nuevo
+                      </span>
+                    )}
+                    {isTrending && (
+                      <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-rose-700">
+                        Tendencia
+                      </span>
+                    )}
+                    {isSolved && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        Resp.
+                      </span>
+                    )}
+                  </div>
+
                   <div className="text-xs font-medium text-slate-900 line-clamp-2">
                     {title}
                   </div>

@@ -11,6 +11,47 @@ import { auth } from "@/firebase";
 import NowWidget from "@/components/NowWidget";
 // import AuthBox from "@/components/AuthBox"; // si luego quieres reactivar el hero
 
+// 👇 Normalizador de estados derivados, igual que en ForumMock
+type AnyThread = Thread & Record<string, any>;
+
+function deriveFlags(t: AnyThread) {
+  const any = t as AnyThread;
+  const created = any.createdAt;
+  const lastAct = any.lastActivityAt ?? any.updatedAt ?? created;
+
+  const toDate = (v: any) =>
+    v?.toDate?.() ??
+    (v instanceof Date ? v : v ? new Date(v) : new Date());
+
+  const createdDate = toDate(created);
+  const lastDate = toDate(lastAct);
+  const now = new Date();
+
+  const hoursSinceCreated =
+    (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+  const hoursSinceLast =
+    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60);
+
+  const replies = Number(any.repliesCount ?? any.commentsCount ?? 0);
+  const views = Number(any.viewsCount ?? any.views ?? 0);
+
+  // normalizamos el status a string genérico
+  const status = String(any.status ?? "").toLowerCase();
+
+  const isSolved =
+    Boolean(any.bestPostId) ||
+    status === "resolved" ||   // ahora compara contra un string normal
+    !!any.resolved;
+
+
+  const isNew = hoursSinceCreated <= 24;
+  const isTrending =
+    (replies >= 3 && hoursSinceLast <= 24) ||
+    (views >= 30 && hoursSinceLast <= 24);
+
+  return { isNew, isTrending, isSolved };
+}
+
 function SkeletonList() {
   return (
     <>
@@ -134,7 +175,10 @@ function PostCard({ t, threadId, currentUserId }: PostCardProps) {
 
   const [isFollowing, setIsFollowing] = useState(false);
 
-  // ⬇️ Aquí usamos el MISMO hook que ya funciona en FollowButton
+  // estados derivados (Nuevo / Tendencia / Respondido)
+  const { isNew, isTrending, isSolved } = deriveFlags(t as AnyThread);
+
+  // ⬇️ Listener "¿yo sigo este hilo?"
   useEffect(() => {
     if (!currentUserId || !threadId) {
       setIsFollowing(false);
@@ -159,6 +203,24 @@ function PostCard({ t, threadId, currentUserId }: PostCardProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs mb-1 flex-wrap">
+            {isNew && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                Nuevo
+              </span>
+            )}
+
+            {isTrending && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700">
+                Tendencia
+              </span>
+            )}
+
+            {isSolved && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                Respondido
+              </span>
+            )}
+
             {tags.slice(0, 4).map((tg) => (
               <span
                 key={tg}
