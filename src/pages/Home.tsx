@@ -165,13 +165,23 @@ type PostCardProps = {
 
 function PostCard({ t, threadId, currentUserId }: PostCardProps) {
   const href = `/thread/${encodeURIComponent(threadId)}`;
-  const title = (t as any).title ?? "Sin título";
-  const letter = (title[0] || "U").toUpperCase();
 
-  const replies = Number((t as any).repliesCount ?? 0);
-  const views = Number((t as any).viewsCount ?? (t as any).views ?? 0);
-  const upvotes = Number((t as any).upvotesCount ?? 0);
-  const tags: string[] = (t as any).tags ?? [];
+  // 🔹 Datos del autor tomados del thread
+  const any = t as any;
+  const authorName: string =
+    any.authorName ?? any.author?.name ?? "Usuario";
+  const authorId: string | undefined =
+    any.authorId ?? any.author?.id ?? undefined;
+
+  // Letra del avatar: ahora viene del autor, no del título
+  const letter = (authorName[0] || "U").toUpperCase();
+
+  const title = any.title ?? "Sin título";
+
+  const replies = Number(any.repliesCount ?? 0);
+  const views = Number(any.viewsCount ?? any.views ?? 0);
+  const upvotes = Number(any.upvotesCount ?? 0);
+  const tags: string[] = any.tags ?? [];
 
   const [isFollowing, setIsFollowing] = useState(false);
 
@@ -198,10 +208,23 @@ function PostCard({ t, threadId, currentUserId }: PostCardProps) {
       className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-300"
     >
       <div className="flex items-start gap-3">
-        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white grid place-items-center text-sm font-bold">
-          {letter}
-        </div>
+        {/* Avatar: si hay authorId, lleva al perfil */}
+        {authorId ? (
+          <Link
+            to={`/u/${authorId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white grid place-items-center text-sm font-bold hover:brightness-105"
+          >
+            {letter}
+          </Link>
+        ) : (
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white grid place-items-center text-sm font-bold">
+            {letter}
+          </div>
+        )}
+
         <div className="flex-1 min-w-0">
+          {/* Chips de estado + tags */}
           <div className="flex items-center gap-2 text-xs mb-1 flex-wrap">
             {isNew && (
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
@@ -237,8 +260,28 @@ function PostCard({ t, threadId, currentUserId }: PostCardProps) {
             )}
           </div>
 
-          <div className="font-semibold hover:underline truncate">{title}</div>
-          <div className="mt-1 flex items-center gap-4 text-xs text-slate-600">
+          {/* Título del hilo */}
+          <div className="font-semibold hover:underline truncate">
+            {title}
+          </div>
+
+          {/* Autor (clicable si tiene perfil) + métricas */}
+          <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <span className="inline-flex items-center gap-1">
+              👤
+              {authorId ? (
+                <Link
+                  to={`/u/${authorId}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="hover:underline"
+                >
+                  {authorName}
+                </Link>
+              ) : (
+                <span>{authorName}</span>
+              )}
+            </span>
+
             <span>💬 {replies}</span>
             <span>👁 {views}</span>
             <span>👍 {upvotes}</span>
@@ -248,3 +291,4 @@ function PostCard({ t, threadId, currentUserId }: PostCardProps) {
     </Link>
   );
 }
+

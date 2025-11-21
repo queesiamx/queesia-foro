@@ -36,7 +36,9 @@ import { renderSafe } from "@/utils/safeRender";
 /* ----------------------------- Tipos locales ----------------------------- */
 type TThread = {
   id: string;
-  authorId?: string; // #RTC_CO — autor del hilo (para permisos de "Mejor respuesta")
+  authorId?: string;          // ya lo tenías
+  authorName?: string;        // NUEVO
+  authorPhotoUrl?: string | null; // opcional, por si luego lo usas
   title?: string;
   body?: string;
   tags?: string[];
@@ -44,15 +46,15 @@ type TThread = {
   locked?: boolean;
   repliesCount?: number;
   views?: number;
-  viewsCount?: number; // por si tu doc usa este nombre
-  // #RTC_CO — F1.3: mejor respuesta
+  viewsCount?: number;
   bestPostId?: string;
-
 };
+
 
 type TPost = {
   id: string;
   body: string;
+  authorId?: string;           // 👈 NUEVO
   authorName?: string;
   createdAt?: Timestamp | Date;
   isAnswer?: boolean;
@@ -61,6 +63,7 @@ type TPost = {
   parentPostId?: string | null;
   parentAuthorName?: string | null;
 };
+
 
 
 /* ---------------------------- Utilidades UI/UX --------------------------- */
@@ -301,29 +304,51 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
         <>
         {/* Header del hilo */}
         <header className="rounded-2xl border border-slate-200 bg-white p-5">
-        {/* Chips / estados */}
-        <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
-           {(thread.tags ?? []).map((tg, i) => (
-             <span key={`${tg}-${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
-              #{tg}
-            </span>
-          ))}
-          {thread.pinned && (
-            <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
-              📌 Fijado
-            </span>
-          )}
-          {thread.locked && (
-            <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">
-              🔒 Cerrado
-            </span>
-          )}
-        </div>
+          {/* Autor del hilo */}
+          <div className="mb-3 flex items-center gap-2 text-xs text-slate-600">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white grid place-items-center text-[11px] font-bold">
+              {(thread?.authorName ?? "U")[0]?.toUpperCase()}
+            </div>
 
-        {/* Título y descripción */}
-        <h1 className="text-xl md:text-2xl font-semibold text-slate-900">
-          {thread?.title ?? "Sin título"}
-        </h1>
+            {thread?.authorId ? (
+              <Link
+                to={`/u/${thread.authorId}`}
+                className="font-medium text-slate-800 hover:underline"
+              >
+                {thread.authorName ?? "Usuario"}
+              </Link>
+            ) : (
+              <span className="font-medium text-slate-800">
+                {thread?.authorName ?? "Usuario"}
+              </span>
+            )}
+          </div>
+
+          {/* Chips / estados */}
+          <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
+            {(thread.tags ?? []).map((tg, i) => (
+              <span key={`${tg}-${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                #{tg}
+              </span>
+            ))}
+            {thread.pinned && (
+              <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+                📌 Fijado
+              </span>
+            )}
+            {thread.locked && (
+              <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">
+                🔒 Cerrado
+              </span>
+            )}
+          </div>
+
+          {/* Título y descripción */}
+          <h1 className="text-xl md:text-2xl font-semibold text-slate-900">
+            {thread?.title ?? "Sin título"}
+          </h1>
+
+
        {thread?.body && (
           
           <div className="prose max-w-none" dangerouslySetInnerHTML={renderSafe(thread.body)} />
@@ -597,9 +622,18 @@ function FollowButton({ threadId }: FollowButtonProps) {
 
         <div className="flex-1 min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="font-medium text-slate-800">
-              {p.authorName ?? "Usuario"}
-            </span>
+            {p.authorId ? (
+              <Link
+                to={`/u/${p.authorId}`}
+                className="font-medium text-slate-800 hover:underline"
+              >
+                {p.authorName ?? "Usuario"}
+              </Link>
+            ) : (
+              <span className="font-medium text-slate-800">
+                {p.authorName ?? "Usuario"}
+              </span>
+            )}
             <span className="text-slate-400">•</span>
             <span>{when}</span>
             {isBest && (

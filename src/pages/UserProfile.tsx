@@ -75,7 +75,8 @@ export default function UserProfilePage() {
 
     const qPosts = query(
       collection(db, "posts"),
-      where("authorId", "==", uid)
+      where("authorId", "==", uid),
+      orderBy("createdAt", "desc")
     );
 
     const offThreads = onSnapshot(qThreads, (snap) => {
@@ -115,6 +116,17 @@ export default function UserProfilePage() {
 
   const threadsCount = threads.length;
   const postsCount = posts.length;
+
+  // 🔹 Respuestas recientes ordenadas (tomamos las 5 más nuevas)
+  const recentPosts = useMemo(() => {
+    return [...posts]
+      .sort((a, b) => {
+        const da = toDate(a.createdAt)?.getTime() ?? 0;
+        const db = toDate(b.createdAt)?.getTime() ?? 0;
+        return db - da; // más recientes primero
+      })
+      .slice(0, 5);
+  }, [posts]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
@@ -211,6 +223,52 @@ export default function UserProfilePage() {
               </Link>
             );
           })
+        )}
+      </section>
+
+      {/* 🔹 Nueva sección: Respuestas recientes */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Respuestas recientes
+        </h2>
+
+        {recentPosts.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-600">
+            {isMe
+              ? "Todavía no has respondido en ningún hilo."
+              : "Esta persona aún no ha respondido en otros hilos."}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentPosts.map((p) => {
+              const created = fmt(
+                toDate(
+                  p.createdAt instanceof Timestamp
+                    ? p.createdAt
+                    : (p.createdAt as any)
+                )
+              );
+              // Intentamos encontrar el título del hilo; si no, mostramos un genérico
+              const thread = threads.find((t) => t.id === p.threadId);
+              const title = thread?.title ?? "Ver hilo";
+
+              return (
+                <Link
+                  key={p.id}
+                  to={p.threadId ? `/thread/${p.threadId}` : "#"}
+                  className="block rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-slate-300"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm text-slate-800">
+                      Respuesta en:{" "}
+                      <span className="font-semibold">{title}</span>
+                    </span>
+                    <span className="text-xs text-slate-500">{created}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         )}
       </section>
 

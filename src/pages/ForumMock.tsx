@@ -72,6 +72,9 @@ type CardData = {
   title: string;
   excerpt: string;
   author: { name: string; handle?: string; avatar?: string | null };
+    // 👇 NUEVO
+  authorId?: string;
+
   createdAt: string;
   lastActivity: { by: string; when: string };
   category: string;
@@ -287,10 +290,21 @@ function ThreadCard({ t }: { t: CardData }) {
           <p className="mt-1 line-clamp-2 text-sm text-slate-600">{t.excerpt}</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" /> {t.author.name}{" "}
+           <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {t.authorId ? (
+                <Link
+                  to={`/u/${t.authorId}`}
+                  className="hover:underline text-slate-700"
+                >
+                  {t.author.name}
+                </Link>
+              ) : (
+                <span className="text-slate-700">{t.author.name}</span>
+              )}
               <span className="text-slate-400">·</span> {t.createdAt}
             </span>
+
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" /> Última act.: {t.lastActivity.by} ·{" "}
               {t.lastActivity.when}
@@ -511,6 +525,10 @@ function ForumMock() {
       handle: any.author?.handle ?? "",
       avatar: any.author?.avatarUrl ?? null,
     },
+
+        // 👇 NUEVO: lo tomamos directo del thread
+    authorId: any.authorId ?? any.author?.id ?? undefined,
+
     createdAt: ago(created),
     lastActivity: { by: any.lastActorName ?? "", when: ago(lastAct) },
     category: any.category ?? "general",
