@@ -24,6 +24,7 @@ import NowWidget from "@/components/NowWidget";
 // RTC-CO (Home.tsx – imports)
 import UserMenu from "@/components/UserMenu";
 import Footer from "@/components/Footer";
+import NotificationBell from "@/components/NotificationBell"; // 👈 NUEVO
 // --- Mock data ---
 const CATEGORIES = [
   { id: "all", name: "Todas", color: "bg-slate-200 text-slate-700" },
@@ -98,6 +99,7 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+        {/* Lado izquierdo: marca */}
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 text-white font-bold">
             Q
@@ -111,14 +113,24 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
             </div>
           </div>
         </div>
+
+        {/* Nav central (solo desktop) */}
         <div className="hidden items-center gap-6 md:flex">
-          <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/">
+          <Link
+            className="text-sm font-medium text-slate-700 hover:text-slate-900"
+            to="/"
+          >
             Inicio
           </Link>
-          <Link className="text-sm font-medium text-slate-700 hover:text-slate-900" to="/reglas">
+          <Link
+            className="text-sm font-medium text-slate-700 hover:text-slate-900"
+            to="/reglas"
+          >
             Reglas
           </Link>
         </div>
+
+        {/* Lado derecho: botón + campanita + menú usuario */}
         <div className="flex items-center gap-3">
           <button
             onClick={onCreate}
@@ -127,12 +139,17 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
             <Plus className="h-4 w-4" /> Crear tema
           </button>
 
+          {/* 👇 NUEVO: campanita de notificaciones */}
+          <NotificationBell />
+
           <UserMenu />
         </div>
       </div>
     </div>
   );
 }
+
+
 
 function FiltersBar({
   q,

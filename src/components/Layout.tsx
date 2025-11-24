@@ -2,6 +2,8 @@
 import { Outlet, useLocation, Link } from "react-router-dom";
 import AuthBox from "@/components/AuthBox";
 import UserMenu from "@/components/UserMenu";
+import NotificationBell from "@/components/NotificationBell";
+
 
 export default function Layout() {
   const loc = useLocation();
@@ -52,8 +54,10 @@ const hideTopbar =
             </nav>
 
             {/* Sesión */}
-            
-            <UserMenu />
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <UserMenu />
+            </div>
           </div>
         </header>
       )}

@@ -33,6 +33,9 @@ import {
 } from "@/services/follow";
 
 import { renderSafe } from "@/utils/safeRender";
+
+import { createReplyNotification } from "@/services/notifications";
+
 /* ----------------------------- Tipos locales ----------------------------- */
 type TThread = {
   id: string;
@@ -240,8 +243,8 @@ useEffect(() => {
 
 
 
-  // Enviar respuesta
 
+      // Enviar respuesta
   const onReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !id || !reply.trim()) return;
@@ -251,12 +254,15 @@ useEffect(() => {
 
       const s = await requireSession();
 
+      const body = reply.trim();
+      const authorName = s.displayName ?? s.email ?? "Anónimo";
+
       await addDoc(collection(db, "posts"), {
         threadId: id,
-        body: reply.trim(),
+        body,
         createdAt: serverTimestamp(),
         authorId: s.uid,
-        authorName: s.displayName ?? s.email ?? "Anónimo",
+        authorName,
         // 🔹 rastro de a quién respondí
         parentPostId: replyingTo?.id ?? null,
         parentAuthorName: replyingTo?.authorName ?? null,
@@ -264,17 +270,56 @@ useEffect(() => {
 
       // 🔹 actualiza contador del hilo
       const threadRef = doc(db, "threads", id);
-      updateDoc(threadRef, {
+      await updateDoc(threadRef, {
         repliesCount: increment(1),
         lastActivityAt: serverTimestamp(),
       }).catch(() => {});
 
+          // 🔹 crea notificación para el autor del hilo (buscando varios posibles campos)
+      if (thread) {
+        const anyThread = thread as any;
+        const threadAuthorId =
+          thread.authorId ??
+          anyThread.authorId ??
+          anyThread.author?.id ??
+          anyThread.userId ??
+          anyThread.ownerId ??
+          null;
+
+        console.log("🟣 notif-debug: threadAuthorId", threadAuthorId, {
+          thread,
+          raw: anyThread,
+        });
+
+        if (threadAuthorId && threadAuthorId !== s.uid) {
+          try {
+            await createReplyNotification({
+              threadId: id,
+              threadTitle: thread?.title ?? "Sin título",
+              threadAuthorId,
+              replierId: s.uid,
+              replierName: authorName,
+            });
+            console.log("🟣 notif-debug: notificación creada OK");
+          } catch (err) {
+            console.error("🟥 notif-debug: error creando notificación:", err);
+          }
+        } else {
+          console.log(
+            "🟣 notif-debug: NO se creó notificación (sin autor o autor = replier)"
+          );
+        }
+      }
+
+
       setReply("");
-      setReplyingTo(null);   // ✅ deja de mostrar el banner “respondiendo a…”
+      setReplyingTo(null); // deja de mostrar el banner “respondiendo a…”
     } finally {
       setSaving(false);
     }
   };
+
+
 
 
 
@@ -547,47 +592,51 @@ function FollowButton({ threadId }: FollowButtonProps) {
   // 👍 Like / Unlike
   const [liking, setLiking] = useState(false);
 
-  const handleLike = async () => {
-    if (liking) return;
-    try {
-      setLiking(true);
-      const s = await requireSession(); // pide login si no lo hay
+   const handleLike = async () => {
+  if (liking) return;
+  try {
+    setLiking(true);
+    const s = await requireSession(); // pide login si no lo hay
 
-      // 1) ¿Ya existe voto de este usuario para este post?
-      const votesCol = collection(db, "post_votes");
-      const q = query(
-        votesCol,
-        where("postId", "==", p.id),
-        where("userId", "==", s.uid)
-      );
-      const snap = await getDocs(q);
+    // 1) ¿Ya existe voto de este usuario para este post?
+    const votesCol = collection(db, "post_votes");
+    const q = query(
+      votesCol,
+      where("postId", "==", p.id),
+      where("userId", "==", s.uid)
+    );
+    const snap = await getDocs(q);
 
-      const postRef = doc(db, "posts", p.id);
+    const postRef = doc(db, "posts", p.id);
 
-      if (!snap.empty) {
-        // Ya había voto → quitarlo
-        await Promise.all([
-          deleteDoc(snap.docs[0].ref),
-          updateDoc(postRef, { upvotes: increment(-1) }),
-        ]);
-      } else {
-        // No había voto → crearlo
-        await Promise.all([
-          addDoc(votesCol, {
-            postId: p.id,
-            userId: s.uid,
-            createdAt: serverTimestamp(),
-          }),
-          updateDoc(postRef, { upvotes: increment(1) }),
-        ]);
-      }
-      // El contador se actualiza solo por el onSnapshot de posts
-    } catch (err) {
-      console.error("Error al hacer like:", err);
-    } finally {
-      setLiking(false);
+    if (!snap.empty) {
+      // Ya había voto → quitarlo
+      await Promise.all([
+        deleteDoc(snap.docs[0].ref),
+        updateDoc(postRef, { upvotes: increment(-1) }),
+      ]);
+    } else {
+      // No había voto → crearlo
+      await Promise.all([
+        addDoc(votesCol, {
+          postId: p.id,
+          userId: s.uid,
+          createdAt: serverTimestamp(),
+        }),
+        updateDoc(postRef, { upvotes: increment(1) }),
+      ]);
     }
-  };
+
+    // 👇 De momento SIN notificación por like
+    // Si luego queremos, aquí llamamos a createLikeNotification(...)
+  } catch (err) {
+    console.error("Error al hacer like:", err);
+  } finally {
+    setLiking(false);
+  }
+};
+
+
 
   // #RTC_CO — F1.3: marcar / desmarcar mejor respuesta
   const toggleBest = async () => {
