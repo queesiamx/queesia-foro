@@ -1,190 +1,189 @@
 // src/services/notifications.ts
-// Servicio de notificaciones del foro (RTC_CO)
+// Utilidades de notificaciones del foro
 
 import {
   collection,
-  addDoc,
-  doc,
-  updateDoc,
-  onSnapshot,
   query,
   where,
   orderBy,
   limit,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  getDocs,
+  doc,
   serverTimestamp,
   Timestamp,
-  getDocs,        // 👈 agrega este
 } from "firebase/firestore";
 import { db } from "@/firebase";
-
-// -------------------- Tipos --------------------
 
 export type ForumNotification = {
   id: string;
   userId: string;          // destinatario
-  fromUserId: string;      // quien la genera
-  fromUserName?: string;
-  type: string;            // 'reply', 'like', etc.
-  threadId?: string;
-  threadTitle?: string;
-  postId?: string;
+  type: "reply" | "like";  // puedes extender: "follow", etc.
+  threadId?: string | null;
+  postId?: string | null;
   message: string;
-  read: boolean;
-  createdAt?: Timestamp;
+  createdAt?: Timestamp | Date | null;
+  read?: boolean;
+  fromUserId?: string | null;
+  fromUserName?: string | null;
+  threadTitle?: string | null;
 };
 
-const COL = "notifications";
+// ----------------------------- Creación -----------------------------
 
-// -------------------- Helpers internos --------------------
-
-function mapSnapToNotification(snap: any): ForumNotification {
-  const data = snap.data() || {};
-  return {
-    id: snap.id,
-    userId: data.userId,
-    fromUserId: data.fromUserId,
-    fromUserName: data.fromUserName,
-    type: data.type,
-    threadId: data.threadId,
-    threadTitle: data.threadTitle,
-    postId: data.postId,
-    message: data.message,
-    read: !!data.read,
-    createdAt: data.createdAt,
-  };
-}
-
-// -------------------- Creación genérica --------------------
-
-type BaseNotificationPayload = {
-  userId: string;          // destinatario
-  type: string;
-  threadId?: string;
-  threadTitle?: string;
-  postId?: string;
-  message: string;
-};
-
-export async function sendNotification(
-  payload: BaseNotificationPayload & {
-    fromUserId: string;
-    fromUserName?: string | null;
-  }
-) {
-  if (!db) return;
-
-  await addDoc(collection(db, COL), {
-    userId: payload.userId,              // destinatario
-    fromUserId: payload.fromUserId,      // quien la genera
-    fromUserName: payload.fromUserName ?? null,
-    type: payload.type,
-    threadId: payload.threadId ?? null,
-    threadTitle: payload.threadTitle ?? null,
-    postId: payload.postId ?? null,
-    message: payload.message,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
-}
-
-// -------------------- Caso específico: respuesta en hilo --------------------
-
-type ReplyNotificationParams = {
+type CreateReplyNotificationInput = {
   threadId: string;
   threadTitle: string;
-  threadAuthorId: string;   // destinatario
-  replierId: string;        // quien responde
-  replierName?: string | null;
+  threadAuthorId: string;  // destinatario
+  replierId: string;
+  replierName: string;
 };
 
-export async function createReplyNotification(params: ReplyNotificationParams) {
-  return sendNotification({
-    userId: params.threadAuthorId,
-    fromUserId: params.replierId,
-    fromUserName: params.replierName ?? null,
+export async function createReplyNotification(
+  input: CreateReplyNotificationInput
+) {
+  if (!db) return;
+  const {
+    threadId,
+    threadTitle,
+    threadAuthorId,
+    replierId,
+    replierName,
+  } = input;
+
+  // No notificar si el autor responde en su propio hilo
+  if (threadAuthorId === replierId) return;
+
+  const colRef = collection(db, "notifications");
+
+  await addDoc(colRef, {
+    userId: threadAuthorId,
     type: "reply",
-    threadId: params.threadId,
-    threadTitle: params.threadTitle,
-    message: `${params.replierName ?? "Alguien"} respondió en “${
-      params.threadTitle || "un hilo"
-    }”.`,
+    threadId,
+    postId: null,
+    message: `${replierName} respondió en tu hilo "${threadTitle}".`,
+    createdAt: serverTimestamp(),
+    read: false,
+    fromUserId: replierId,
+    fromUserName: replierName,
+    threadTitle,
   });
 }
 
-// -------------------- Lectura en tiempo real --------------------
+type CreateLikeNotificationInput = {
+  userId: string;      // destinatario (autor del post)
+  threadId: string;
+  postId: string;
+  fromUserId: string;
+  fromUserName: string;
+  threadTitle?: string | null;
+};
 
-// Solo el contador de no leídas
+export async function createLikeNotification(input: CreateLikeNotificationInput) {
+  if (!db) return;
+  const { userId, threadId, postId, fromUserId, fromUserName, threadTitle } =
+    input;
+
+  if (userId === fromUserId) return;
+
+  const colRef = collection(db, "notifications");
+
+  await addDoc(colRef, {
+    userId,
+    type: "like",
+    threadId,
+    postId,
+    message: `${fromUserName} le dio like a tu respuesta.`,
+    createdAt: serverTimestamp(),
+    read: false,
+    fromUserId,
+    fromUserName,
+    threadTitle: threadTitle ?? null,
+  });
+}
+
+// -------------------------- Lectura / watchers ----------------------
+
+// 🔢 contador de no leídas
 export function watchUnreadNotifications(
   userId: string,
   cb: (count: number) => void
 ) {
   if (!db) return () => {};
 
-  const q = query(
-    collection(db, COL),
+  const colRef = collection(db, "notifications");
+  const qUnread = query(
+    colRef,
     where("userId", "==", userId),
     where("read", "==", false)
   );
 
-  return onSnapshot(
-    q,
-    (snap) => cb(snap.size),
-    (err) => {
-      console.error("[notifications] error en watchUnreadNotifications", err);
-      cb(0);
-    }
-  );
+  return onSnapshot(qUnread, (snap) => {
+    cb(snap.size);
+  });
 }
 
-// Lista de últimas notificaciones (leídas y no leídas)
+// 📋 últimas notificaciones (leídas + no leídas)
 export function watchUserNotifications(
   userId: string,
   cb: (items: ForumNotification[]) => void
 ) {
   if (!db) return () => {};
 
-  const q = query(
-    collection(db, COL),
+  const colRef = collection(db, "notifications");
+  const qAll = query(
+    colRef,
     where("userId", "==", userId),
     orderBy("createdAt", "desc"),
-    limit(10)
+    limit(20)
   );
 
-  return onSnapshot(
-    q,
-    (snap) => {
-      const items = snap.docs.map(mapSnapToNotification);
-      cb(items);
-    },
-    (err) => {
-      console.error("[notifications] error en watchUserNotifications", err);
-      cb([]);
-    }
-  );
+  return onSnapshot(qAll, (snap) => {
+    const list: ForumNotification[] = snap.docs.map((d) => {
+      const data = d.data() as any;
+      return {
+        id: d.id,
+        userId: data.userId,
+        type: data.type,
+        threadId: data.threadId ?? null,
+        postId: data.postId ?? null,
+        message: data.message ?? "",
+        createdAt: data.createdAt ?? null,
+        read: data.read ?? false,
+        fromUserId: data.fromUserId ?? null,
+        fromUserName: data.fromUserName ?? null,
+        threadTitle: data.threadTitle ?? null,
+      };
+    });
+    cb(list);
+  });
 }
 
-// -------------------- Marcar como leída --------------------
+// -------------------------- Marcar como leídas ----------------------
 
 export async function markNotificationAsRead(id: string) {
-  if (!db || !id) return;
-  const ref = doc(db, COL, id);
+  if (!db) return;
+  const ref = doc(db, "notifications", id);
   await updateDoc(ref, { read: true });
 }
 
-// RTC_CO — Marcar TODAS las notificaciones de un usuario como leídas
 export async function markAllNotificationsAsRead(userId: string) {
-  if (!db || !userId) return;
+  if (!db) return;
 
-  // Solo las que están pendientes (read == false)
-  const q = query(
-    collection(db, COL),
+  const colRef = collection(db, "notifications");
+  const qUnread = query(
+    colRef,
     where("userId", "==", userId),
     where("read", "==", false)
   );
 
-  const snap = await getDocs(q);
+  const snap = await getDocs(qUnread);
   if (snap.empty) return;
 
-  const ops = snap.docs.map((d) => updateDoc(d.ref, { read: true }));
-  await Promise.all(ops);
+  const updates = snap.docs.map((d) =>
+    updateDoc(doc(db, "notifications", d.id), { read: true })
+  );
+  await Promise.all(updates);
 }

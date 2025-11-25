@@ -2,6 +2,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import React, { Suspense, lazy } from "react";
 import RequireAuth from "@/components/RequireAuth";
+import NotificationsPage from "@/pages/Notifications";
 
 const Layout    = lazy(() => import("@components/Layout"));
 const ForumMock = lazy(() => import("@pages/ForumMock"));   // landing mock
@@ -34,6 +35,12 @@ export const router = createBrowserRouter([
       { path: "thread/:id", element: <S><Thread /></S> },
       { path: "u/:uid", element: <S><UserProfilePage /></S> },
       { path: "reglas",     element: <S><Rules /></S> },
+
+      {
+        path: "notificaciones",
+        element: <NotificationsPage />, // RTC_CO — vista completa de notificaciones
+      },
+
 
       // Home “live” (dinámica)
       { path: "live",       element: <S><Home /></S> },

@@ -11,10 +11,9 @@ import {
   watchUnreadNotifications,
   watchUserNotifications,
   markNotificationAsRead,
-  markAllNotificationsAsRead,   // RTC_CO — nuevo helper
+  markAllNotificationsAsRead,
   type ForumNotification,
 } from "@/services/notifications";
-
 
 function formatDate(ts?: any) {
   if (!ts) return "";
@@ -45,7 +44,6 @@ export default function NotificationBell() {
     let stopList: (() => void) | null = null;
 
     const stopAuth = onAuthStateChanged(auth, (user) => {
-      // Limpia listeners previos
       if (stopCount) {
         stopCount();
         stopCount = null;
@@ -91,19 +89,15 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  if (!uid) {
-    // Si no hay usuario logueado, no mostramos nada (o podrías mostrar una campanita desactivada)
-    return null;
-  }
+  if (!uid) return null;
 
-  // RTC_CO — al abrir el popover, marcar todas como leídas
+  // Al abrir el popover, marcar todas como leídas (solo si hay)
   const handleToggle = async () => {
     if (!uid) return;
-
     const next = !open;
     setOpen(next);
 
-    if (next) {
+    if (next && unread > 0) {
       try {
         await markAllNotificationsAsRead(uid);
       } catch (err) {
@@ -115,7 +109,6 @@ export default function NotificationBell() {
     }
   };
 
-
   const handleClickNotification = async (notif: ForumNotification) => {
     try {
       if (!notif.read) {
@@ -124,7 +117,6 @@ export default function NotificationBell() {
     } catch (err) {
       console.error("Error marcando notificación como leída", err);
     } finally {
-      // dejamos que el <Link> haga la navegación; no cerramos forzosamente
       setOpen(false);
     }
   };
@@ -164,39 +156,49 @@ export default function NotificationBell() {
               No tienes notificaciones por ahora.
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
-              {items.map((n) => (
-                <li key={n.id}>
-                  <Link
-                    to={n.threadId ? `/thread/${n.threadId}` : "#"}
-                    onClick={() => handleClickNotification(n)}
-                    className={`flex flex-col gap-1 px-3 py-2 text-sm hover:bg-slate-50 ${
-                      n.read ? "text-slate-500" : "text-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium truncate">
-                        {n.fromUserName ?? "Alguien"}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {formatDate(n.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-xs line-clamp-2">{n.message}</p>
-                    {n.threadTitle && (
-                      <p className="text-[11px] text-slate-400">
-                        En: <span className="italic">{n.threadTitle}</span>
-                      </p>
-                    )}
-                    {!n.read && (
-                      <span className="mt-1 inline-flex items-center gap-1 self-start rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
-                        • Nuevo
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="divide-y divide-slate-100">
+                {items.map((n) => (
+                  <li key={n.id}>
+                    <Link
+                      to={n.threadId ? `/thread/${n.threadId}` : "#"}
+                      onClick={() => handleClickNotification(n)}
+                      className={`block px-3 py-2.5 text-sm ${
+                        n.read
+                          ? "bg-white hover:bg-slate-50"
+                          : "bg-amber-50/70 hover:bg-amber-50"
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                        <span className="font-medium text-slate-900">
+                          {n.fromUserName ?? "Alguien"}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {formatDate(n.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-[13px] text-slate-800">{n.message}</p>
+                      {n.threadTitle && (
+                        <p className="mt-1 text-[11px] text-slate-600 line-clamp-1">
+                          En:{" "}
+                          <span className="font-medium">{n.threadTitle}</span>
+                        </p>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="border-t border-slate-100 px-3 py-2 text-right">
+                <Link
+                  to="/notificaciones"
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  onClick={() => setOpen(false)}
+                >
+                  Ver todas las notificaciones →
+                </Link>
+              </div>
+            </>
           )}
         </div>
       )}
