@@ -2,6 +2,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from "firebase/storage";
+
 
 // Toma primero tus nombres VITE_FIREBASE_*, y si no existen usa VITE_FB_*
 const firebaseConfig = {
@@ -32,3 +34,4 @@ if (!firebaseConfig.apiKey) {
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db   = getFirestore(app);
+export const storage = getStorage(app);   // ✅ NUEVO

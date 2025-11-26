@@ -20,7 +20,7 @@ body { @apply bg-slate-50 text-slate-900; }
   .bg-brand-grad-rev    { background-image: linear-gradient(to right, #FBBF24, #6366F1); }
   .bg-brand-grad-br     { background-image: linear-gradient(to bottom right, #6366F1, #FBBF24); }
 }
-/* === Quesia: tokens y utilidades de gradiente (ámbar → índigo) === */
+/* === Queesia: tokens y utilidades de gradiente (ámbar → índigo) === */
 :root{
   --from: #F59E0B; /* amber-500 */
   --via:  #4F46E5; /* indigo-600 */

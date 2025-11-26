@@ -1,7 +1,7 @@
 // src/pages/UserProfile.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { auth, db } from "@/firebase";
+import { auth, db, storage } from "@/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import {
   collection,
@@ -12,8 +12,10 @@ import {
   query,
   Timestamp,
   where,
+  updateDoc,
 } from "firebase/firestore";
 import { Eye, MessageSquare } from "lucide-react";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 type ThreadLite = {
   id: string;
@@ -36,6 +38,8 @@ type PostLite = {
 type UserDoc = {
   displayName?: string;
   bio?: string;
+  role?: string;
+  photoURL?: string;
 };
 
 type Stats = {
@@ -54,7 +58,8 @@ const emptyStats: Stats = {
   acceptedAnswers: 0,
 };
 
-const toDate = (d?: Timestamp) => (d instanceof Timestamp ? d.toDate() : undefined);
+const toDate = (d?: Timestamp) =>
+  d instanceof Timestamp ? d.toDate() : undefined;
 
 const fmtShort = (d?: Date) =>
   d
@@ -74,14 +79,24 @@ export default function UserProfile() {
   const [replies, setReplies] = useState<PostLite[]>([]);
   const [stats, setStats] = useState<Stats>(emptyStats);
 
-
-  // Nombre público derivado de hilos / posts (para cuando las reglas no
-  // permiten leer /users/{uid} de otros usuarios)
-  const [fallbackDisplayName, setFallbackDisplayName] = useState<string | null>(null);
-
+  // Nombre público derivado de hilos / posts (cuando no se puede leer /users)
+  const [fallbackDisplayName, setFallbackDisplayName] = useState<string | null>(
+    null
+  );
 
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingReplies, setLoadingReplies] = useState(true);
+
+  // === Estado para edición de perfil (solo para el dueño) ===
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Avatar
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
 
   // Usuario logueado
   useEffect(() => {
@@ -89,13 +104,15 @@ export default function UserProfile() {
     return () => off();
   }, []);
 
-  // Datos del usuario (bio, nombre público) desde /users/{uid}
+  const isMe = currentUser && uid && currentUser.uid === uid;
+
+  // Datos del usuario (bio, nombre público, rol, photoURL) desde /users/{uid}
   useEffect(() => {
     if (!uid || !db) return;
 
-    const ref = doc(db, "users", uid);
+    const refUser = doc(db, "users", uid);
     const off = onSnapshot(
-      ref,
+      refUser,
       (snap) => {
         if (snap.exists()) {
           setUserDoc(snap.data() as UserDoc);
@@ -110,6 +127,84 @@ export default function UserProfile() {
 
     return () => off();
   }, [uid]);
+
+  // Inicializar valores del formulario cuando cargan datos del dueño
+  useEffect(() => {
+    if (!isMe || editMode) return;
+
+    const baseName =
+      userDoc?.displayName ||
+      currentUser?.displayName ||
+      currentUser?.email ||
+      "";
+
+    setEditName(baseName);
+    setEditBio(userDoc?.bio ?? "");
+    setEditRole(userDoc?.role ?? "");
+    setPendingAvatarFile(null);
+    setPreviewAvatarUrl(null);
+  }, [isMe, editMode, userDoc, currentUser]);
+
+  // Limpiar URL de preview al desmontar/cambiar
+  useEffect(() => {
+    return () => {
+      if (previewAvatarUrl) URL.revokeObjectURL(previewAvatarUrl);
+    };
+  }, [previewAvatarUrl]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setPendingAvatarFile(file);
+
+    if (previewAvatarUrl) {
+      URL.revokeObjectURL(previewAvatarUrl);
+      setPreviewAvatarUrl(null);
+    }
+
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewAvatarUrl(url);
+    }
+  };
+
+  // Guardar cambios de perfil
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !uid || currentUser.uid !== uid || !db) return;
+
+    try {
+      setSaving(true);
+      const refUser = doc(db, "users", uid);
+
+      let newPhotoURL = userDoc?.photoURL ?? null;
+
+      // Si hay nuevo avatar, subir a Storage
+      if (pendingAvatarFile && storage) {
+        const avatarRef = ref(storage, `avatars/${uid}.jpg`);
+        await uploadBytes(avatarRef, pendingAvatarFile);
+        newPhotoURL = await getDownloadURL(avatarRef);
+      }
+
+      await updateDoc(refUser, {
+        displayName: editName.trim() || null,
+        bio: editBio.trim(),
+        role: editRole.trim() || null,
+        photoURL: newPhotoURL,
+      });
+
+      setEditMode(false);
+      setPendingAvatarFile(null);
+      if (previewAvatarUrl) {
+        URL.revokeObjectURL(previewAvatarUrl);
+        setPreviewAvatarUrl(null);
+      }
+    } catch (err) {
+      console.error("Error actualizando perfil:", err);
+      alert("No se pudieron guardar los cambios. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Hilos recientes + stats (vistas e hilos)
   useEffect(() => {
@@ -128,15 +223,12 @@ export default function UserProfile() {
       (snap) => {
         const items: ThreadLite[] = [];
         let totalViews = 0;
-        // Intentamos obtener un nombre público desde los hilos
         let nameFromThreads: string | null = null;
 
         snap.forEach((d) => {
           const data = d.data() as any;
 
           if (!nameFromThreads) {
-            // Usa aquí el campo que realmente tengas en tus hilos
-            // (ajusta los nombres si tu esquema es distinto).
             nameFromThreads =
               data.authorName ??
               data.authorDisplayName ??
@@ -153,11 +245,13 @@ export default function UserProfile() {
             createdAt: data.createdAt,
             lastActivityAt: data.lastActivityAt,
           });
-          const v = typeof data.viewsCount === "number" ? data.viewsCount : data.views ?? 0;
+          const v =
+            typeof data.viewsCount === "number"
+              ? data.viewsCount
+              : data.views ?? 0;
           totalViews += v;
         });
 
-        // Solo pisamos el fallback si encontramos algo
         if (nameFromThreads) {
           setFallbackDisplayName((prev) => prev ?? nameFromThreads!);
         }
@@ -170,7 +264,8 @@ export default function UserProfile() {
         }));
         setLoadingThreads(false);
       },
-      () => {
+      (err) => {
+        console.error("Error cargando hilos del perfil:", err);
         setThreads([]);
         setStats((prev) => ({ ...prev, threadsCount: 0, totalViews: 0 }));
         setLoadingThreads(false);
@@ -203,7 +298,7 @@ export default function UserProfile() {
           items.push({
             id: d.id,
             threadId: data.threadId,
-            threadTitle: data.threadTitle, // opcional si luego lo agregas
+            threadTitle: data.threadTitle,
             createdAt: data.createdAt,
             upvotes: data.upvotes ?? 0,
           });
@@ -216,13 +311,12 @@ export default function UserProfile() {
           ...prev,
           repliesCount: snap.size,
           totalUpvotes,
-          // acceptedAnswers quedará en 0 por ahora;
-          // luego lo conectamos cuando marquemos isAnswer en los posts.
           acceptedAnswers: prev.acceptedAnswers,
         }));
         setLoadingReplies(false);
       },
-      () => {
+      (err) => {
+        console.error("Error cargando respuestas del perfil:", err);
         setReplies([]);
         setStats((prev) => ({
           ...prev,
@@ -236,7 +330,7 @@ export default function UserProfile() {
     return () => off();
   }, [uid]);
 
-  // Reputación suave (puede ajustarse después)
+  // Reputación suave
   const reputation = useMemo(() => {
     const base =
       stats.threadsCount * 5 +
@@ -246,9 +340,7 @@ export default function UserProfile() {
     return base;
   }, [stats]);
 
-  const isMe = currentUser && uid && currentUser.uid === uid;
-
-    const displayName = useMemo(
+  const displayName = useMemo(
     () =>
       userDoc?.displayName ??
       (isMe
@@ -258,31 +350,44 @@ export default function UserProfile() {
   );
 
   const bioText = userDoc?.bio?.trim();
+  const roleText = userDoc?.role?.trim();
+  const avatarSrc = previewAvatarUrl || userDoc?.photoURL || null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Encabezado */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white grid place-items-center text-xl font-bold">
-            {displayName?.[0]?.toUpperCase() ?? "U"}
-          </div>
+          {avatarSrc ? (
+            <img
+              src={avatarSrc}
+              alt={displayName || "Avatar"}
+              className="h-12 w-12 rounded-full object-cover border border-slate-200"
+            />
+          ) : (
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white grid place-items-center text-xl font-bold">
+              {displayName?.[0]?.toUpperCase() ?? "U"}
+            </div>
+          )}
           <div>
             <h1 className="text-lg md:text-xl font-semibold text-slate-900">
               {displayName}
             </h1>
             <p className="text-xs text-slate-500">
-              Participante en la comunidad de Quesia · Foro
+              Participante en la comunidad de Queesia · Foro
+              {roleText ? ` · ${roleText}` : ""}
             </p>
           </div>
         </div>
 
         <div className="text-right text-xs text-slate-600">
           <p>
-            <span className="font-semibold">{stats.threadsCount}</span> Hilos creados
+            <span className="font-semibold">{stats.threadsCount}</span> Hilos
+            creados
           </p>
           <p>
-            <span className="font-semibold">{stats.repliesCount}</span> Respuestas
+            <span className="font-semibold">{stats.repliesCount}</span>{" "}
+            Respuestas
           </p>
           <p>
             <span className="font-semibold">{reputation}</span> Reputación
@@ -290,11 +395,138 @@ export default function UserProfile() {
         </div>
       </section>
 
-      {/* Acerca de mí */}
+      {/* Acerca de mí + edición */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900 mb-2">Acerca de mí</h2>
-        {bioText ? (
-          <p className="text-sm text-slate-700 whitespace-pre-line">{bioText}</p>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Acerca de mí</h2>
+          {isMe && (
+            <button
+              type="button"
+              onClick={() => setEditMode((v) => !v)}
+              className="text-xs px-3 py-1 rounded-full border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+            >
+              {editMode ? "Cancelar" : "Editar perfil"}
+            </button>
+          )}
+        </div>
+
+        {editMode && isMe ? (
+          <form className="space-y-4 mt-1" onSubmit={handleSaveProfile}>
+            {/* Avatar */}
+            <div className="flex items-center gap-3">
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt="Preview avatar"
+                  className="h-12 w-12 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-white grid place-items-center text-xl font-bold">
+                  {displayName?.[0]?.toUpperCase() ?? "U"}
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-slate-700">
+                  Avatar
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="text-xs"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Imágenes JPG o PNG. Idealmente cuadradas.
+                </p>
+              </div>
+            </div>
+
+            {/* Nombre público */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-700">
+                Nombre público
+              </label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500"
+                maxLength={60}
+                placeholder="Cómo quieres aparecer en el foro"
+              />
+            </div>
+
+            {/* Rol / especialidad */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-700">
+                Rol / especialidad
+              </label>
+              <input
+                type="text"
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500"
+                maxLength={80}
+                placeholder="Ej. Ing. en TI · Interés en IA aplicada"
+              />
+            </div>
+
+            {/* Bio */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-700">
+                Descripción pública (bio)
+              </label>
+              <textarea
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500 resize-none"
+                maxLength={600}
+                placeholder="Cuenta brevemente quién eres, qué te interesa o en qué temas sueles participar."
+              />
+              <p className="text-[11px] text-slate-400">
+                Esto es visible para toda la comunidad. Evita compartir datos
+                personales sensibles.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setEditMode(false);
+                  setPendingAvatarFile(null);
+                  if (previewAvatarUrl) {
+                    URL.revokeObjectURL(previewAvatarUrl);
+                    setPreviewAvatarUrl(null);
+                  }
+                }}
+                className="text-xs text-slate-500 hover:text-slate-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : bioText ? (
+          <div className="space-y-1">
+            {roleText && (
+              <p className="text-xs text-slate-500 mb-1">
+                Rol / especialidad:{" "}
+                <span className="font-medium">{roleText}</span>
+              </p>
+            )}
+            <p className="text-sm text-slate-700 whitespace-pre-line">
+              {bioText}
+            </p>
+          </div>
         ) : (
           <p className="text-sm text-slate-500">
             {isMe
@@ -306,7 +538,9 @@ export default function UserProfile() {
 
       {/* Stats del usuario */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900 mb-3">Stats del usuario</h2>
+        <h2 className="text-sm font-semibold text-slate-900 mb-3">
+          Stats del usuario
+        </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-xs">
           <div>
             <div className="text-lg font-semibold text-slate-900">
@@ -318,7 +552,9 @@ export default function UserProfile() {
             <div className="text-lg font-semibold text-slate-900">
               {stats.totalUpvotes}
             </div>
-            <div className="text-slate-500">Votos recibidos en sus respuestas</div>
+            <div className="text-slate-500">
+              Votos recibidos en sus respuestas
+            </div>
           </div>
           <div>
             <div className="text-lg font-semibold text-slate-900">
@@ -329,7 +565,9 @@ export default function UserProfile() {
             </div>
           </div>
           <div>
-            <div className="text-lg font-semibold text-slate-900">{reputation}</div>
+            <div className="text-lg font-semibold text-slate-900">
+              {reputation}
+            </div>
             <div className="text-slate-500">Reputación acumulada</div>
           </div>
         </div>
@@ -338,7 +576,9 @@ export default function UserProfile() {
       {/* Hilos recientes */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Hilos recientes</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Hilos recientes
+          </h2>
         </div>
 
         {loadingThreads ? (
@@ -367,19 +607,22 @@ export default function UserProfile() {
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     {created && <span>{fmtShort(created)}</span>}
                     <span className="inline-flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" /> {t.repliesCount ?? 0}
+                      <MessageSquare className="h-3 w-3" />{" "}
+                      {t.repliesCount ?? 0}
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Eye className="h-3 w-3" /> {t.viewsCount ?? 0}
                     </span>
-                    {(t.tags ?? []).slice(0, 3).map((tag, idx) => (
-                      <span
-                        key={`${t.id}-${idx}`}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
+                    {(t.tags ?? [])
+                      .slice(0, 3)
+                      .map((tag, idx) => (
+                        <span
+                          key={`${t.id}-${idx}`}
+                          className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
                   </div>
                 </li>
               );
@@ -391,7 +634,9 @@ export default function UserProfile() {
       {/* Respuestas recientes */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Respuestas recientes</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Respuestas recientes
+          </h2>
         </div>
 
         {loadingReplies ? (
