@@ -35,6 +35,7 @@ import {
 import { renderSafe } from "@/utils/safeRender";
 
 import { createReplyNotification } from "@/services/notifications";
+import { createReport } from "@/services/reports";
 
 /* ----------------------------- Tipos locales ----------------------------- */
 type TThread = {
@@ -90,6 +91,16 @@ export default function ThreadPage() {
   const [posts, setPosts] = useState<TPost[]>([]);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // 👇 NUEVO: estado para reportes
+  const [reportTarget, setReportTarget] = useState<{
+    type: "thread" | "post";
+    id: string;
+    label: string;
+  } | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportSending, setReportSending] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
     // 👇 NUEVOS estados para “último leído”
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -320,6 +331,46 @@ useEffect(() => {
   };
 
 
+  // =================== Reportes (Fase 3) ===================
+const openReport = (params: { type: "thread" | "post"; id: string; label: string }) => {
+  setReportTarget(params);
+  setReportReason("");
+  setReportError(null);
+};
+
+const closeReport = () => {
+  if (reportSending) return;
+  setReportTarget(null);
+  setReportReason("");
+  setReportError(null);
+};
+
+const handleSubmitReport = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!reportTarget || !reportReason.trim()) return;
+
+  try {
+    setReportSending(true);
+    setReportError(null);
+
+    const s = await requireSession(); // fuerza login si no hay
+
+    await createReport({
+      targetId: reportTarget.id,
+      targetType: reportTarget.type,
+      reason: reportReason.trim(),
+      userId: s.uid,
+    });
+
+    setReportTarget(null);
+    setReportReason("");
+  } catch (err) {
+    console.error("Error creando reporte:", err);
+    setReportError("Ocurrió un error al enviar el reporte. Intenta de nuevo.");
+  } finally {
+    setReportSending(false);
+  }
+};
 
 
 
@@ -413,6 +464,23 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
            <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 hover:bg-slate-50">
             <Bookmark className="h-3.5 w-3.5" /> Guardar
           </button>
+
+            {/* 👇 NUEVO: reportar hilo */}
+            {thread?.id && (
+              <button
+                type="button"
+                onClick={() =>
+                  openReport({
+                    type: "thread",
+                    id: thread.id,
+                    label: thread.title ?? "este hilo",
+                  })
+                }
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2 py-1 text-rose-700 hover:bg-rose-50"
+              >
+                Reportar
+              </button>
+            )}
           <Link to="/feed" className="hover:underline">
             ← Volver al feed
           </Link>
@@ -433,6 +501,14 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
             thread={thread!}
             onReplyClick={() => handleReplyClick(p)}
             isFirstUnread={p.id === firstUnreadPostId}
+                // 👇 NUEVO
+            onReportClick={() =>
+              openReport({
+                type: "post",
+                id: p.id,
+                label: p.authorName ?? "esta respuesta",
+              })
+            }
           />
         ))
       )}
@@ -467,6 +543,54 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
           </button>
         </div>
       </form>
+
+      {/* 👇 Modal de reporte */}
+      {reportTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="text-sm font-semibold text-slate-900 mb-2">
+              Reportar {reportTarget.type === "thread" ? "hilo" : "respuesta"}
+            </h2>
+            <p className="mb-3 text-xs text-slate-600">
+              Ayúdanos a mantener la comunidad sana. Explica brevemente qué problema ves en{" "}
+              <span className="font-semibold">{reportTarget.label}</span>.
+            </p>
+
+            <form onSubmit={handleSubmitReport} className="space-y-3">
+              <textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                rows={4}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-rose-400"
+                placeholder="Ejemplo: lenguaje ofensivo, spam, contenido fuera de tema…"
+                disabled={reportSending}
+              />
+
+              {reportError && (
+                <p className="text-xs text-rose-600">{reportError}</p>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeReport}
+                  disabled={reportSending}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={reportSending || !reportReason.trim()}
+                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {reportSending ? "Enviando..." : "Enviar reporte"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
         </>
       )}
     </div>
@@ -560,17 +684,20 @@ function FollowButton({ threadId }: FollowButtonProps) {
 }
 
 
-    function PostCard({
+  function PostCard({
   p,
   thread,
   onReplyClick,
   isFirstUnread,
+  onReportClick,      // 👈 aquí lo agregamos
 }: {
   p: TPost;
   thread: TThread;
   onReplyClick: () => void;
   isFirstUnread?: boolean;
+  onReportClick: () => void;
 }) {
+
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
 
@@ -742,6 +869,15 @@ function FollowButton({ threadId }: FollowButtonProps) {
             >
               Responder
             </button>
+
+              {/* 👇 NUEVO: reportar respuesta */}
+              <button
+                type="button"
+                onClick={onReportClick}
+                className="rounded-lg border border-rose-200 px-2 py-1 text-rose-700 hover:bg-rose-50"
+              >
+                Reportar
+              </button>
 
             {/* #RTC_CO — F1.3: mejor respuesta */}
             <button

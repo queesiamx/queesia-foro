@@ -13,6 +13,11 @@ const Rules     = lazy(() => import("@pages/Rules"));
 const Home      = lazy(() => import("@pages/Home"));        // Home dinámica (Firestore)
 const UserProfilePage = lazy(() => import("@pages/UserProfile"));
 
+// 👇 NUEVO: página de reportes de admin
+const AdminReportsPage = lazy(
+  () => import("@pages/AdminReports")
+);
+
 const Fallback = <div style={{ padding: 16 }}>Cargando…</div>;
 const S = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={Fallback}>{children}</Suspense>
@@ -39,6 +44,19 @@ export const router = createBrowserRouter([
       {
         path: "notificaciones",
         element: <NotificationsPage />, // RTC_CO — vista completa de notificaciones
+      },
+
+      
+
+      // 🔐 Panel de moderación: requiere login
+      // y dentro del componente se verifica el correo admin
+      {
+        path: "admin/reports",        // 👈 sin slash inicial, es hijo de "/"
+        element: (
+          <RequireAuth>
+            <S><AdminReportsPage /></S>
+          </RequireAuth>
+        ),
       },
 
 

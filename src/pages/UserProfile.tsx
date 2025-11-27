@@ -1,7 +1,7 @@
 // src/pages/UserProfile.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { auth, db, storage } from "@/firebase";
+import { auth, db } from "@/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import {
   collection,
@@ -13,9 +13,10 @@ import {
   Timestamp,
   where,
   updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { Eye, MessageSquare } from "lucide-react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToCloudinary } from "@/services/cloudinary";
 
 type ThreadLite = {
   id: string;
@@ -36,10 +37,10 @@ type PostLite = {
 };
 
 type UserDoc = {
-  displayName?: string;
-  bio?: string;
-  role?: string;
-  photoURL?: string;
+  displayName?: string | null;
+  bio?: string | null;
+  role?: string | null;
+  avatarUrl?: string | null;
 };
 
 type Stats = {
@@ -79,7 +80,6 @@ export default function UserProfile() {
   const [replies, setReplies] = useState<PostLite[]>([]);
   const [stats, setStats] = useState<Stats>(emptyStats);
 
-  // Nombre público derivado de hilos / posts (cuando no se puede leer /users)
   const [fallbackDisplayName, setFallbackDisplayName] = useState<string | null>(
     null
   );
@@ -87,18 +87,17 @@ export default function UserProfile() {
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingReplies, setLoadingReplies] = useState(true);
 
-  // === Estado para edición de perfil (solo para el dueño) ===
+  // Estado de edición de perfil (solo para el dueño)
   const [editMode, setEditMode] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editBio, setEditBio] = useState("");
-  const [editRole, setEditRole] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftBio, setDraftBio] = useState("");
+  const [draftRole, setDraftRole] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Avatar
-  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
-  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
+  // Avatar local (preview) + archivo seleccionado
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
-  // Usuario logueado
   useEffect(() => {
     const off = onAuthStateChanged(auth, (u) => setCurrentUser(u));
     return () => off();
@@ -106,7 +105,7 @@ export default function UserProfile() {
 
   const isMe = currentUser && uid && currentUser.uid === uid;
 
-  // Datos del usuario (bio, nombre público, rol, photoURL) desde /users/{uid}
+  // Carga del documento /users/{uid}
   useEffect(() => {
     if (!uid || !db) return;
 
@@ -120,93 +119,50 @@ export default function UserProfile() {
           setUserDoc(null);
         }
       },
-      () => {
-        setUserDoc(null);
-      }
+      () => setUserDoc(null)
     );
 
     return () => off();
   }, [uid]);
 
-  // Inicializar valores del formulario cuando cargan datos del dueño
+  // Inicializar formulario de edición cuando cambiamos a modo edición
   useEffect(() => {
-    if (!isMe || editMode) return;
+    if (!isMe || !currentUser) return;
 
     const baseName =
       userDoc?.displayName ||
-      currentUser?.displayName ||
-      currentUser?.email ||
+      currentUser.displayName ||
+      currentUser.email ||
       "";
 
-    setEditName(baseName);
-    setEditBio(userDoc?.bio ?? "");
-    setEditRole(userDoc?.role ?? "");
-    setPendingAvatarFile(null);
-    setPreviewAvatarUrl(null);
-  }, [isMe, editMode, userDoc, currentUser]);
+    setDraftName(baseName);
+    setDraftBio(userDoc?.bio ?? "");
+    setDraftRole(userDoc?.role ?? "");
+  }, [isMe, currentUser, userDoc, editMode]);
 
-  // Limpiar URL de preview al desmontar/cambiar
+  // Limpiar URL de preview al desmontar
   useEffect(() => {
     return () => {
-      if (previewAvatarUrl) URL.revokeObjectURL(previewAvatarUrl);
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
     };
-  }, [previewAvatarUrl]);
+  }, [avatarPreviewUrl]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setPendingAvatarFile(file);
+    setAvatarFile(file);
 
-    if (previewAvatarUrl) {
-      URL.revokeObjectURL(previewAvatarUrl);
-      setPreviewAvatarUrl(null);
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarPreviewUrl(null);
     }
 
     if (file) {
       const url = URL.createObjectURL(file);
-      setPreviewAvatarUrl(url);
+      setAvatarPreviewUrl(url);
     }
   };
 
-  // Guardar cambios de perfil
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser || !uid || currentUser.uid !== uid || !db) return;
-
-    try {
-      setSaving(true);
-      const refUser = doc(db, "users", uid);
-
-      let newPhotoURL = userDoc?.photoURL ?? null;
-
-      // Si hay nuevo avatar, subir a Storage
-      if (pendingAvatarFile && storage) {
-        const avatarRef = ref(storage, `avatars/${uid}.jpg`);
-        await uploadBytes(avatarRef, pendingAvatarFile);
-        newPhotoURL = await getDownloadURL(avatarRef);
-      }
-
-      await updateDoc(refUser, {
-        displayName: editName.trim() || null,
-        bio: editBio.trim(),
-        role: editRole.trim() || null,
-        photoURL: newPhotoURL,
-      });
-
-      setEditMode(false);
-      setPendingAvatarFile(null);
-      if (previewAvatarUrl) {
-        URL.revokeObjectURL(previewAvatarUrl);
-        setPreviewAvatarUrl(null);
-      }
-    } catch (err) {
-      console.error("Error actualizando perfil:", err);
-      alert("No se pudieron guardar los cambios. Intenta de nuevo.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Hilos recientes + stats (vistas e hilos)
+  // Hilos recientes + stats
   useEffect(() => {
     if (!uid || !db) return;
     setLoadingThreads(true);
@@ -245,6 +201,7 @@ export default function UserProfile() {
             createdAt: data.createdAt,
             lastActivityAt: data.lastActivityAt,
           });
+
           const v =
             typeof data.viewsCount === "number"
               ? data.viewsCount
@@ -275,7 +232,7 @@ export default function UserProfile() {
     return () => off();
   }, [uid]);
 
-  // Respuestas recientes + stats (respuestas y votos)
+  // Respuestas recientes + stats
   useEffect(() => {
     if (!uid || !db) return;
     setLoadingReplies(true);
@@ -330,7 +287,7 @@ export default function UserProfile() {
     return () => off();
   }, [uid]);
 
-  // Reputación suave
+  // Reputación (heurística simple)
   const reputation = useMemo(() => {
     const base =
       stats.threadsCount * 5 +
@@ -349,18 +306,63 @@ export default function UserProfile() {
     [userDoc, isMe, currentUser, fallbackDisplayName]
   );
 
-  const bioText = userDoc?.bio?.trim();
-  const roleText = userDoc?.role?.trim();
-  const avatarSrc = previewAvatarUrl || userDoc?.photoURL || null;
+  const bioText = userDoc?.bio?.trim() || "";
+  const roleText = userDoc?.role?.trim() || "";
+  const avatarUrl = userDoc?.avatarUrl || null;
+  const effectiveAvatarSrc = avatarPreviewUrl || avatarUrl || null;
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !uid || currentUser.uid !== uid || !db) return;
+
+    try {
+      setSaving(true);
+      const refUser = doc(db, "users", uid);
+
+      let newAvatarUrl = avatarUrl;
+
+      // Subir avatar a Cloudinary solo si se seleccionó un archivo nuevo
+      if (avatarFile) {
+        try {
+          newAvatarUrl = await uploadImageToCloudinary(avatarFile);
+        } catch (err) {
+          console.error("Error subiendo avatar a Cloudinary:", err);
+          alert(
+            "No se pudo subir la imagen de avatar. Se guardarán tus datos de texto sin cambiar el avatar."
+          );
+        }
+      }
+
+      await updateDoc(refUser, {
+        displayName: draftName.trim() || null,
+        bio: draftBio.trim(),
+        role: draftRole.trim() || null,
+        avatarUrl: newAvatarUrl ?? null,
+        updatedAt: serverTimestamp(),
+      });
+
+      setEditMode(false);
+      setAvatarFile(null);
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+        setAvatarPreviewUrl(null);
+      }
+    } catch (err) {
+      console.error("Error actualizando perfil:", err);
+      alert("No se pudieron guardar los cambios. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Encabezado */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {avatarSrc ? (
+          {effectiveAvatarSrc ? (
             <img
-              src={avatarSrc}
+              src={effectiveAvatarSrc}
               alt={displayName || "Avatar"}
               className="h-12 w-12 rounded-full object-cover border border-slate-200"
             />
@@ -374,7 +376,7 @@ export default function UserProfile() {
               {displayName}
             </h1>
             <p className="text-xs text-slate-500">
-              Participante en la comunidad de Queesia · Foro
+              Participante en la comunidad de Quesia · Foro
               {roleText ? ` · ${roleText}` : ""}
             </p>
           </div>
@@ -414,10 +416,10 @@ export default function UserProfile() {
           <form className="space-y-4 mt-1" onSubmit={handleSaveProfile}>
             {/* Avatar */}
             <div className="flex items-center gap-3">
-              {avatarSrc ? (
+              {effectiveAvatarSrc ? (
                 <img
-                  src={avatarSrc}
-                  alt="Preview avatar"
+                  src={effectiveAvatarSrc}
+                  alt="Avatar actual"
                   className="h-12 w-12 rounded-full object-cover border border-slate-200"
                 />
               ) : (
@@ -436,7 +438,8 @@ export default function UserProfile() {
                   className="text-xs"
                 />
                 <p className="text-[11px] text-slate-400">
-                  Imágenes JPG o PNG. Idealmente cuadradas.
+                  La imagen se almacena en Cloudinary. Usa una imagen cuadrada
+                  y ligera.
                 </p>
               </div>
             </div>
@@ -448,8 +451,8 @@ export default function UserProfile() {
               </label>
               <input
                 type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500"
                 maxLength={60}
                 placeholder="Cómo quieres aparecer en el foro"
@@ -463,8 +466,8 @@ export default function UserProfile() {
               </label>
               <input
                 type="text"
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value)}
+                value={draftRole}
+                onChange={(e) => setDraftRole(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500"
                 maxLength={80}
                 placeholder="Ej. Ing. en TI · Interés en IA aplicada"
@@ -477,8 +480,8 @@ export default function UserProfile() {
                 Descripción pública (bio)
               </label>
               <textarea
-                value={editBio}
-                onChange={(e) => setEditBio(e.target.value)}
+                value={draftBio}
+                onChange={(e) => setDraftBio(e.target.value)}
                 rows={4}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500 resize-none"
                 maxLength={600}
@@ -503,10 +506,10 @@ export default function UserProfile() {
                 disabled={saving}
                 onClick={() => {
                   setEditMode(false);
-                  setPendingAvatarFile(null);
-                  if (previewAvatarUrl) {
-                    URL.revokeObjectURL(previewAvatarUrl);
-                    setPreviewAvatarUrl(null);
+                  setAvatarFile(null);
+                  if (avatarPreviewUrl) {
+                    URL.revokeObjectURL(avatarPreviewUrl);
+                    setAvatarPreviewUrl(null);
                   }
                 }}
                 className="text-xs text-slate-500 hover:text-slate-700"
@@ -530,7 +533,7 @@ export default function UserProfile() {
         ) : (
           <p className="text-sm text-slate-500">
             {isMe
-              ? "Aún no has agregado una descripción pública. Pronto podremos editarla desde tu perfil."
+              ? "Aún no has agregado una descripción pública. Usa el botón “Editar perfil” para agregarla."
               : "Esta persona aún no ha agregado una descripción pública."}
           </p>
         )}
