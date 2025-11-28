@@ -21,11 +21,11 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
+  limit, // 👈 NUEVO
 } from "firebase/firestore";
 
+import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp, Tag } from "lucide-react";
 
-import { MessageSquare, Eye, Bookmark, CheckCircle2, ThumbsUp } from "lucide-react";
-// #RTC_CO — F1.2 seguir hilo (sin AuthContext)
 import {
   toggleFollow,
   watchFollowCount,
@@ -68,6 +68,14 @@ type TPost = {
   parentAuthorName?: string | null;
 };
 
+type RelatedThread = {
+  id: string;
+  title: string;
+  tags?: string[];
+  repliesCount?: number;
+  views?: number;
+  overlap?: number; // cuántas etiquetas comparte con el hilo actual
+};
 
 
 /* ---------------------------- Utilidades UI/UX --------------------------- */
@@ -105,6 +113,11 @@ export default function ThreadPage() {
     // 👇 NUEVOS estados para “último leído”
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [firstUnreadPostId, setFirstUnreadPostId] = useState<string | null>(null);
+
+  // Hilos relacionados (F4.2)
+  const [relatedThreads, setRelatedThreads] = useState<RelatedThread[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+
 
 
   // 🔹 textarea de respuesta
@@ -173,6 +186,80 @@ useEffect(() => {
     lastViewAt: serverTimestamp(),
   }).catch(() => {});
 }, [thread]);   // 👈 AQUÍ EL ARREGLO
+
+
+  // 🔹 Hilos relacionados basados en etiquetas (F4.2)
+  useEffect(() => {
+    if (!db || !thread || !Array.isArray(thread.tags) || thread.tags.length === 0) {
+      setRelatedThreads([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchRelated = async () => {
+      try {
+        setLoadingRelated(true);
+
+        const baseTags = (thread.tags as string[]).slice(0, 10);
+        const qRel = query(
+          collection(db, "threads"),
+          where("tags", "array-contains-any", baseTags),
+          limit(10)
+        );
+
+        const snap = await getDocs(qRel);
+
+                const baseSet = new Set(
+          baseTags.map((t) => String(t).toLowerCase())
+        );
+
+        const items: RelatedThread[] = [];
+
+        snap.forEach((d) => {
+          if (d.id === thread.id) return;
+          const data = d.data() as any;
+
+          const tagsArray = (data.tags ?? []) as string[];
+          const tagsLower = tagsArray.map((x) => String(x).toLowerCase());
+          const overlap = tagsLower.filter((t) => baseSet.has(t)).length;
+
+          items.push({
+            id: d.id,
+            title: data.title ?? "(Sin título)",
+            tags: tagsArray,
+            repliesCount: data.repliesCount ?? 0,
+            views: data.viewsCount ?? data.views ?? 0,
+            overlap,
+          });
+        });
+
+        items.sort((a, b) => {
+          const overlapA = a.overlap ?? 0;
+          const overlapB = b.overlap ?? 0;
+
+          if (overlapB !== overlapA) return overlapB - overlapA;
+          return (b.views ?? 0) - (a.views ?? 0);
+        });
+
+
+        if (!cancelled) {
+          setRelatedThreads(items.slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Error cargando hilos relacionados:", err);
+        if (!cancelled) setRelatedThreads([]);
+      } finally {
+        if (!cancelled) setLoadingRelated(false);
+      }
+    };
+
+    fetchRelated();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [thread, db]);
 
 
 
@@ -515,6 +602,88 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
 
       </section>
+
+            {/* Hilos relacionados (F4.2) */}
+      {thread && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            Hilos relacionados
+          </h2>
+
+          {loadingRelated ? (
+            <p className="text-xs text-slate-500">
+              Buscando temas similares…
+            </p>
+          ) : relatedThreads.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              Por ahora no hay otros temas con etiquetas parecidas.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {relatedThreads.map((t) => {
+                const overlap = t.overlap ?? 0;
+
+                // Color según cuántas etiquetas comparten
+                const cardTone =
+                  overlap >= 3
+                    ? "border-indigo-200 bg-indigo-50"      // muy relacionado
+                    : overlap === 2
+                    ? "border-sky-200 bg-sky-50"            // bastante relacionado
+                    : overlap === 1
+                    ? "border-slate-200 bg-slate-50"        // relación ligera
+                    : "border-slate-100 bg-white";          // casi sin relación
+
+                return (
+                  <li
+                    key={t.id}
+                    className={`flex items-start justify-between gap-3 rounded-2xl border p-3 ${cardTone}`}
+                  >
+                    <div className="min-w-0">
+                      <Link
+                        to={`/thread/${t.id}`}
+                        className="text-sm font-medium text-indigo-700 hover:underline"
+                      >
+                        {t.title}
+                      </Link>
+
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(t.tags ?? []).slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] text-slate-600"
+                          >
+                            <Tag className="h-3 w-3" />
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      {overlap > 0 && (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Comparte {overlap} etiqueta{overlap === 1 ? "" : "s"} con este hilo.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <MessageSquare className="h-3 w-3" />
+                        {t.repliesCount ?? 0}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        {t.views ?? 0}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+          )}
+        </section>
+      )}
+
 
       {/* Editor de respuesta */}
       <form

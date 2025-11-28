@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Filter,
   Users,
+  ShieldAlert, // 👈 NUEVO
 } from "lucide-react";
 import { motion } from "framer-motion";
 import NowWidget from "@/components/NowWidget";
@@ -25,6 +26,9 @@ import NowWidget from "@/components/NowWidget";
 import UserMenu from "@/components/UserMenu";
 import Footer from "@/components/Footer";
 import NotificationBell from "@/components/NotificationBell"; // 👈 NUEVO
+
+const ADMIN_EMAILS = ["queesiamx@gmail.com", "queesiamx.employee@gmail.com"];
+
 // --- Mock data ---
 const CATEGORIES = [
   { id: "all", name: "Todas", color: "bg-slate-200 text-slate-700" },
@@ -96,6 +100,16 @@ type CardData = {
 
 // --- UI pieces ---
 function Navbar({ onCreate }: { onCreate: () => void }) {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const off = onAuthStateChanged(auth, (user) => {
+      const email = user?.email ?? "";
+      setIsAdmin(ADMIN_EMAILS.includes(email));
+    });
+    return () => off();
+  }, []);
+
   return (
     <div className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
@@ -139,7 +153,18 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
             <Plus className="h-4 w-4" /> Crear tema
           </button>
 
-          {/* 👇 NUEVO: campanita de notificaciones */}
+          {/* 👇 SOLO admins ven este botón */}
+          {isAdmin && (
+            <Link
+              to="/admin/reports"
+              className="hidden md:inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              Panel moderación
+            </Link>
+          )}
+
+          {/* 👇 Campanita de notificaciones */}
           <NotificationBell />
 
           <UserMenu />
@@ -148,6 +173,7 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
     </div>
   );
 }
+
 
 
 
@@ -579,15 +605,27 @@ function ForumMock() {
       list = list.filter((t: any) => (t.category ?? (t as any).category) === category);
     if (onlySolved) list = list.filter((t: any) => t.status === "resolved" || t.resolved === true);
 
-    if (q.trim()) {
-      const z = q.toLowerCase();
-      list = list.filter((t: any) => {
-        const title = String(t.title ?? "").toLowerCase();
-        const excerpt = String((t.excerpt ?? t.summary ?? "")).toLowerCase();
-        const tags = (t.tags ?? []).map((x: string) => x.toLowerCase());
-        return title.includes(z) || excerpt.includes(z) || tags.some((x: string) => x.includes(z));
-      });
-    }
+if (q.trim()) {
+  const raw = q.trim().toLowerCase();
+
+  // Si el usuario escribe "#ia", buscamos solo por tags = "ia"
+  const term = raw.startsWith("#") ? raw.slice(1) : raw;
+
+  list = list.filter((t: any) => {
+    const title = String(t.title ?? "").toLowerCase();
+    const excerpt = String((t.excerpt ?? t.summary ?? "")).toLowerCase();
+    const tags = (t.tags ?? []).map((x: string) => x.toLowerCase());
+    const author = String(t.authorName ?? t.author?.name ?? "").toLowerCase();
+
+    return (
+      title.includes(term) ||
+      excerpt.includes(term) ||
+      tags.some((x: string) => x.includes(term)) ||
+      author.includes(term)
+    );
+  });
+}
+
 
     switch (sort) {
       case "populares":

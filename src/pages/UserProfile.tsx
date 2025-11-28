@@ -93,6 +93,7 @@ export default function UserProfile() {
   const [draftBio, setDraftBio] = useState("");
   const [draftRole, setDraftRole] = useState("");
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Avatar local (preview) + archivo seleccionado
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -317,6 +318,7 @@ export default function UserProfile() {
 
     try {
       setSaving(true);
+      setSuccessMessage(null); // 👈 limpiamos cualquier mensaje previo
       const refUser = doc(db, "users", uid);
 
       let newAvatarUrl = avatarUrl;
@@ -347,6 +349,9 @@ export default function UserProfile() {
         URL.revokeObjectURL(avatarPreviewUrl);
         setAvatarPreviewUrl(null);
       }
+
+   // 👇 feedback visual de éxito
+    setSuccessMessage("Perfil actualizado correctamente.");
     } catch (err) {
       console.error("Error actualizando perfil:", err);
       alert("No se pudieron guardar los cambios. Intenta de nuevo.");
@@ -435,8 +440,15 @@ export default function UserProfile() {
                   type="file"
                   accept="image/*"
                   onChange={handleAvatarChange}
-                  className="text-xs"
+                  className="
+                    block w-full text-xs text-slate-700
+                    file:mr-3 file:rounded-full file:border-0
+                    file:bg-indigo-50 file:px-3 file:py-1.5
+                    file:text-xs file:font-medium file:text-indigo-700
+                    hover:file:bg-indigo-100
+                  "
                 />
+
                 <p className="text-[11px] text-slate-400">
                   La imagen se almacena en Cloudinary. Usa una imagen cuadrada
                   y ligera.
@@ -535,6 +547,12 @@ export default function UserProfile() {
             {isMe
               ? "Aún no has agregado una descripción pública. Usa el botón “Editar perfil” para agregarla."
               : "Esta persona aún no ha agregado una descripción pública."}
+          </p>
+        )}
+
+        {successMessage && (
+          <p className="mt-3 text-xs font-medium text-emerald-700">
+            {successMessage}
           </p>
         )}
       </section>
