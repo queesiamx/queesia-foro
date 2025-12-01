@@ -9,6 +9,8 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db, auth } from "@/firebase";
+import { Link } from "react-router-dom";
+
 
 type Report = {
   id: string;
@@ -96,6 +98,20 @@ export default function AdminReportsPage() {
         Aquí ves todos los reportes de hilos y respuestas. Solo tú (admin) puedes
         acceder, gracias a las reglas de Firestore.
       </p>
+
+            <div className="flex items-center justify-between gap-2 pt-2">
+        <p className="text-xs text-slate-500">
+          Usa este panel para revisar el contenido marcado por la comunidad.
+        </p>
+
+        <Link
+          to="/admin/metrics"
+          className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+        >
+          Ver métricas del foro
+        </Link>
+      </div>
+
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4">

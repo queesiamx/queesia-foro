@@ -17,6 +17,7 @@ const UserProfilePage = lazy(() => import("@pages/UserProfile"));
 const AdminReportsPage = lazy(
   () => import("@pages/AdminReports")
 );
+const AdminMetricsPage = lazy(() => import("@pages/AdminMetrics"));
 
 const Fallback = <div style={{ padding: 16 }}>Cargando…</div>;
 const S = ({ children }: { children: React.ReactNode }) => (
@@ -58,6 +59,15 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
+
+         {
+          path: "admin/metrics",
+          element: (
+            <RequireAuth>
+              <S><AdminMetricsPage /></S>
+            </RequireAuth>
+          ),
+        },
 
 
       // Home “live” (dinámica)
