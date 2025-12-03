@@ -139,13 +139,23 @@ export default function NotificationBell() {
         )}
       </button>
 
+      
       {/* Popover */}
+      
       {open && (
-        <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg z-50">
+        <div
+          className="
+            fixed top-14 inset-x-0 z-50 w-full
+            md:absolute md:top-10 md:right-0 md:left-auto md:w-[380px]
+
+            max-h-[70vh] overflow-y-auto bg-white shadow-lg
+
+            rounded-none border-t border-slate-200
+            md:rounded-2xl md:border md:border-slate-200
+          "
+        >
           <div className="border-b border-slate-100 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-800">
-              Notificaciones
-            </p>
+            <p className="text-sm font-semibold text-slate-800">Notificaciones</p>
             <p className="text-xs text-slate-500">
               Últimas actividades en tus hilos y respuestas.
             </p>

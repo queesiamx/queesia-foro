@@ -21,7 +21,7 @@ export default function Layout() {
       {/* 🔹 NAVBAR GLOBAL */}
       {!hideTopbar && (
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-2 sm:px-4 py-2 sm:py-3">
             
             {/* Marca */}
             <div className="flex items-center gap-3">
