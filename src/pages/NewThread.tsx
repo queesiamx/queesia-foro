@@ -126,65 +126,53 @@ const onSubmit = async (e: React.FormEvent) => {
 
 
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header compacto */}
-      <div className="border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-3">
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <Link to="/" className="inline-flex items-center gap-1 hover:text-slate-900">
-              <ArrowLeft className="h-4 w-4" />
-              Volver al foro
-            </Link>
-            <span className="mx-2 text-slate-300">|</span>
-            <span className="font-medium text-slate-900">Crear nuevo hilo</span>
-            <span className="ml-auto hidden items-center gap-2 sm:flex">
-              <button
-                type="button"
-                onClick={() => setPreview((v) => !v)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs hover:bg-slate-50"
-              >
-                {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                {preview ? "Ocultar preview" : "Ver preview"}
-              </button>
-             <button
-              type="submit"
-                form="new-thread-form"
-                disabled={!canCreate}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white shadow-sm ${
-                  canCreate ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
-                }`}
-              >
-                Publicar
-            </button>
-            </span>
-          </div>
-        </div>
+  // dentro de src/pages/NewThread.tsx  :contentReference[oaicite:0]{index=0}
+return (
+  <div className="min-h-screen bg-slate-50">
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      {/* Breadcrumb + acción rápida */}
+      <div className="mb-4 flex items-center gap-3 text-sm text-slate-600">
+        <Link to="/" className="inline-flex items-center gap-1 hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" />
+          Volver al foro
+        </Link>
+        <span className="mx-2 text-slate-300">|</span>
+        <span className="font-medium text-slate-900">Crear nuevo hilo</span>
       </div>
 
-      {/* Contenido */}
-      <div className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+      {/* Contenido principal */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Formulario */}
-        <form id="new-thread-form" onSubmit={onSubmit} className="lg:col-span-8 space-y-4">
+        <form
+          id="new-thread-form"
+          onSubmit={onSubmit}
+          className="lg:col-span-8 space-y-4"
+        >
           {/* Título */}
           <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <label className="block text-sm font-medium text-slate-800">Título</label>
+            <label className="block text-sm font-medium text-slate-800">
+              Título
+            </label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Escribe un título claro y directo"
               className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400"
             />
-            <div className="mt-1 text-xs text-slate-500 flex items-center justify-between">
+            <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
               <span>Mín. 3 caracteres.</span>
-              {!titleOk && <span className="text-amber-600">Aún muy corto</span>}
+              {!titleOk && (
+                <span className="text-amber-600">Aún muy corto</span>
+              )}
             </div>
           </div>
 
           {/* Metadatos */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-800">Categoría</label>
+              <label className="block text-sm font-medium text-slate-800">
+                Categoría
+              </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -198,7 +186,9 @@ const onSubmit = async (e: React.FormEvent) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-800">Etiquetas (separadas por coma)</label>
+              <label className="block text-sm font-medium text-slate-800">
+                Etiquetas (separadas por coma)
+              </label>
               <div className="mt-2 flex items-center gap-2">
                 <input
                   value={tags}
@@ -218,7 +208,10 @@ const onSubmit = async (e: React.FormEvent) => {
               {!!tagList.length && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {tagList.map((t) => (
-                    <span key={t} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                    <span
+                      key={t}
+                      className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                    >
                       #{t}
                     </span>
                   ))}
@@ -227,7 +220,7 @@ const onSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          {/* Contenido + Toolbar + Preview */}
+          {/* Contenido + toolbar + preview */}
           <div className="rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
               <div className="flex items-center gap-1">
@@ -292,18 +285,22 @@ const onSubmit = async (e: React.FormEvent) => {
                   <span>
                     Usa <b>**negritas**</b>, <i>_cursivas_</i>, <code>`código`</code>.
                   </span>
-                  <span>
-                    {words} palabras · mín. 10
-                  </span>
+                  <span>{words} palabras · mín. 10</span>
                 </div>
               </div>
 
               {preview && (
                 <div className="border-t border-slate-200 md:border-l md:border-t-0 p-3">
-                  <div className="mb-1 text-xs font-medium text-slate-500">Previsualización</div>
+                  <div className="mb-1 text-xs font-medium text-slate-500">
+                    Previsualización
+                  </div>
                   <div
                     className="prose prose-sm max-w-none rounded-lg border border-slate-200 bg-slate-50 p-3"
-                    dangerouslySetInnerHTML={{ __html: mdLight(content || "_Escribe para ver la preview…_") }}
+                    dangerouslySetInnerHTML={{
+                      __html: mdLight(
+                        content || "_Escribe para ver la preview…_"
+                      ),
+                    }}
                   />
                 </div>
               )}
@@ -312,7 +309,7 @@ const onSubmit = async (e: React.FormEvent) => {
 
           {/* Acciones inferiores */}
           <div className="flex items-center justify-between">
-            <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+            <div className="inline-flex items-center gap-1 text-xs text-slate-500">
               <HelpCircle className="h-4 w-4" /> Pulsa <b>Ctrl</b> + <b>Enter</b> para crear
             </div>
             <div className="flex items-center gap-2">
@@ -320,7 +317,9 @@ const onSubmit = async (e: React.FormEvent) => {
                 type="button"
                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
                 onClick={() => {
-                  setTitle(""); setTags(""); setContent("");
+                  setTitle("");
+                  setTags("");
+                  setContent("");
                 }}
               >
                 Limpiar
@@ -329,7 +328,9 @@ const onSubmit = async (e: React.FormEvent) => {
                 type="submit"
                 disabled={!canCreate}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white shadow-sm ${
-                  canCreate ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
+                  canCreate
+                    ? "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-slate-300 cursor-not-allowed"
                 }`}
               >
                 Crear hilo
@@ -340,15 +341,23 @@ const onSubmit = async (e: React.FormEvent) => {
 
         {/* Sidebar */}
         <aside className="lg:col-span-4 space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sticky top:[88px]">
+          <div className="sticky top-[88px] rounded-xl border border-slate-200 bg-white p-4">
             <div className="q-gradient -mx-4 -mt-4 rounded-t-xl px-4 py-3 text-white">
               <div className="text-sm font-semibold">Sugerencias</div>
             </div>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600">
-              <li>Usa un <b>título descriptivo</b>.</li>
-              <li>Incluye <b>contexto</b> y qué esperas obtener.</li>
-              <li>Agrega <b>etiquetas</b> (máx. 6) para facilitar la búsqueda.</li>
-              <li>Revisa la <b>previsualización</b> antes de publicar.</li>
+              <li>
+                Usa un <b>título descriptivo</b>.
+              </li>
+              <li>
+                Incluye <b>contexto</b> y qué esperas obtener.
+              </li>
+              <li>
+                Agrega <b>etiquetas</b> (máx. 6) para facilitar la búsqueda.
+              </li>
+              <li>
+                Revisa la <b>previsualización</b> antes de publicar.
+              </li>
             </ul>
             <div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
               Esta es una vista de <b>prueba (mock)</b> para diseño.
@@ -357,5 +366,7 @@ const onSubmit = async (e: React.FormEvent) => {
         </aside>
       </div>
     </div>
-  );
+  </div>
+);
+
 }

@@ -1,11 +1,29 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
+  "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://queesia-e0de5.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/firebase/:path*",
+      "destination": "https://www.googleapis.com/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)\\.(js|css|png|jpg|jpeg|svg|ico|woff|woff2)$",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
