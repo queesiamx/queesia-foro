@@ -5,6 +5,9 @@ import type { Thread } from "@/types/forum";
 import { auth } from "@/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { watchIsFollowing } from "@/services/follow";
+import LogoQueso from "../assets/logo-bg.png";
+import BgAmorph from "@/assets/bg_amorph.svg";
+
 
 import {
   Search,
@@ -99,7 +102,7 @@ type CardData = {
 
 
 // --- UI pieces ---
-function Navbar({ onCreate }: { onCreate: () => void }) {
+function Navbar() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -111,66 +114,111 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
   }, []);
 
   return (
-    <div className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        {/* Lado izquierdo: marca */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 text-white font-bold">
-            Q
-          </div>
-          <div>
-            <div className="text-sm uppercase tracking-wider text-slate-500">
-              Queesia
-            </div>
-            <div className="-mt-1 text-base font-semibold text-slate-800">
-              Foro
-            </div>
-          </div>
-        </div>
+      <header
+      className="fixed top-0 left-0 z-50 w-full h-16
+                 bg-white/40 backdrop-blur-xl border border-white/40
+                 shadow-md shadow-slate-900/10"
+    >
 
-        {/* Nav central (solo desktop) */}
-        <div className="hidden items-center gap-6 md:flex">
-          <Link
-            className="text-sm font-medium text-slate-700 hover:text-slate-900"
-            to="/"
-          >
-            Inicio
-          </Link>
-          <Link
-            className="text-sm font-medium text-slate-700 hover:text-slate-900"
-            to="/reglas"
-          >
-            Reglas
-          </Link>
-        </div>
 
-        {/* Lado derecho: botón + campanita + menú usuario */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onCreate}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-white bg-brand-grad-rev hover:brightness-95"
-          >
-            <Plus className="h-4 w-4" /> Crear tema
-          </button>
-
-          {/* 👇 SOLO admins ven este botón */}
-          {isAdmin && (
-            <Link
-              to="/admin/reports"
-              className="hidden md:inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              Panel moderación
-            </Link>
-          )}
-
-          {/* 👇 Campanita de notificaciones */}
-          <NotificationBell />
-
-          <UserMenu />
-        </div>
+<div
+  className="
+    fixed top-0 left-0 z-50 w-full
+    h-14 flex items-center justify-between
+    px-4
+    bg-white/40 backdrop-blur-xl
+    border-b border-white/40
+    shadow-sm shadow-slate-900/5
+  "
+>
+  {/* IZQUIERDA: Marca */}
+  <a
+    href="https://queesia.com"
+    rel="noopener noreferrer"
+    className="flex shrink-0 items-center gap-3"
+    aria-label="Ir a Queesia"
+  >
+    <img src="/logo-bg.png" alt="Queesia" className="h-9 w-9" />
+    <div className="leading-none">
+      <div className="text-3xl font-bold italic">
+        <span className="text-black">quees</span>
+        <span className="text-blue-500">ia</span>
       </div>
     </div>
+  </a>
+
+
+
+  {/* DERECHA: Nav + Acciones (todo pegado a la derecha) */}
+  <div className="flex items-center gap-6">
+    <nav className="hidden lg:flex items-center gap-6 text-lg text-black">
+      <a
+        href="https://queesia.com/#catalogo"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Catálogo
+      </a>
+      <a
+        href="https://queesia.com/casos"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Quesos de éxito
+      </a>
+      <a
+        href="https://expertos.queesia.com"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Expertos
+      </a>
+
+      <Link to="/" className="hover:text-indigo-600 transition-colors">
+        Foro
+      </Link>
+
+      <a
+        href="https://queesia.com/blog/"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Blog
+      </a>
+      <a
+        href="https://queesia.com/nosotros"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Sobre Nosotros
+      </a>
+      <a
+        href="https://queesia.com/contacto"
+        rel="noopener noreferrer"
+        className="hover:text-indigo-600 transition-colors"
+      >
+        Contáctanos
+      </a>
+    </nav>
+
+    <div className="flex items-center gap-3">
+      {isAdmin && (
+        <Link
+          to="/admin/reports"
+          className="hidden md:inline-flex items-center gap-2 h-10 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+        >
+          <ShieldAlert className="h-4 w-4" />
+          Panel moderación
+        </Link>
+      )}
+
+      <NotificationBell />
+      <UserMenu />
+    </div>
+  </div>
+</div>
+
+    </header>
   );
 }
 
@@ -178,6 +226,7 @@ function Navbar({ onCreate }: { onCreate: () => void }) {
 
 
 function FiltersBar({
+  onCreate,
   q,
   setQ,
   category,
@@ -187,6 +236,7 @@ function FiltersBar({
   sort,
   setSort,
 }: {
+  onCreate: () => void;
   q: string;
   setQ: (v: string) => void;
   category: string;
@@ -197,7 +247,7 @@ function FiltersBar({
   setSort: (v: "recientes" | "populares" | "sinrespuesta") => void;
 }) {
   return (
-    <div className="sticky top-[60px] z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div className="sticky top-16 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative w-full max-w-xl">
@@ -242,6 +292,31 @@ function FiltersBar({
               <option value="sinrespuesta">Sin respuesta</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          </div>
+          
+          {/* ✅ Acciones movidas a la barra inferior */}
+          <div className="ml-2 hidden md:flex items-center gap-2">
+            <Link
+              to="/reglas"
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white/60
+                         px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+            >
+              Reglas
+            </Link>
+            <button
+              onClick={onCreate}
+                className="
+                  inline-flex items-center gap-2
+                  h-10 px-5 rounded-full
+                  text-white font-semibold
+                  bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500
+                  shadow-md shadow-slate-900/10
+                  hover:brightness-95
+                "
+              >
+              <Plus className="h-4 w-4" /> Crear tema
+            </button>
+            
           </div>
         </div>
       </div>
@@ -655,9 +730,33 @@ if (q.trim()) {
   const handleCreate = () => nav("/nuevo");
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar onCreate={handleCreate} />
+    <div className="min-h-screen bg-transparent pt-16">
+
+      {/* Fondo fijo tipo catálogo (amorph) */}
+<div
+  className="
+    pointer-events-none fixed inset-0 -z-10
+    [mask-image:linear-gradient(to_bottom,rgba(0,0,0,0),#000_12%,#000_88%,rgba(0,0,0,0))]
+    [-webkit-mask-image:linear-gradient(to_bottom,rgba(0,0,0,0),#000_12%,#000_88%,rgba(0,0,0,0))]
+    [mask-repeat:no-repeat]
+  "
+>
+  <div
+    className="
+      w-full h-full
+      [mask-image:linear-gradient(to_right,rgba(0,0,0,0),#000_10%,#000_90%,rgba(0,0,0,0))]
+      [-webkit-mask-image:linear-gradient(to_right,rgba(0,0,0,0),#000_10%,#000_90%,rgba(0,0,0,0))]
+      [mask-repeat:no-repeat]
+    "
+  >
+    {/* si ya lo moviste a /public, usa /bg_amorph.svg */}
+    <img src={BgAmorph} className="w-full h-full object-cover opacity-25" alt="" />
+  </div>
+</div>
+
+      <Navbar />
       <FiltersBar
+      onCreate={handleCreate}
         q={q}
         setQ={setQ}
         category={category}

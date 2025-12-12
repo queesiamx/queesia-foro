@@ -110,10 +110,10 @@ export default function Footer() {
             © {year} Queesia. Todos los derechos reservados.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <a href="/terminos" className="hover:underline">
+            <a href="https://queesia.com/terminos/" className="hover:underline">
               Términos y Condiciones
             </a>
-            <a href="/privacidad" className="hover:underline">
+            <a href="https://queesia.com/privacidad/" className="hover:underline">
               Aviso de Privacidad
             </a>
           </div>

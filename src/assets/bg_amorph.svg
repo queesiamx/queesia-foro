@@ -1,0 +1,20 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080' viewBox='0 0 1920 1080'>
+ <defs>
+  <linearGradient id='grad' x1='0' y1='0' x2='1' y2='1'>
+    <stop offset='0%' stop-color='#2563EB' />
+    <stop offset='40%' stop-color='#8B5CF6' />
+    <stop offset='100%' stop-color='#F59E0B' />
+  </linearGradient>
+  <radialGradient id='haloY' cx='18%' cy='20%' r='38%'>
+    <stop offset='0%' stop-color='#FDE047' stop-opacity='0.5'/>
+    <stop offset='100%' stop-color='#FDE047' stop-opacity='0'/>
+  </radialGradient>
+ </defs>
+ <rect width='100%' height='100%' fill='url(#grad)'/>
+ <rect width='100%' height='100%' fill='url(#haloY)'/>
+ <g opacity='0.35'>
+  <path d='M1700,200 C1880,260 1860,460 1660,520 C1460,580 1350,410 1420,320 C1490,230 1560,170 1700,200 Z' fill='#A78BFA'/>
+  <path d='M260,820 C180,700 240,560 420,540 C600,520 720,680 640,780 C560,880 380,920 260,820 Z' fill='#60A5FA'/>
+  <path d='M980,160 C1120,120 1270,180 1280,300 C1290,420 1160,520 1040,480 C920,440 840,200 980,160 Z' fill='#FDE047'/>
+ </g>
+</svg>
