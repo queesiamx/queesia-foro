@@ -7,6 +7,7 @@ import {
   ArrowLeft, Eye, EyeOff, Bold, Italic, Code, Hash, Paperclip, HelpCircle,
 } from "lucide-react";
 import { requireSession } from "@/services/auth";
+import ForumNavbar from "@/components/ForumNavbar";
 
 /** Opciones de categorías (mock) */
 const CATEGORIES = [
@@ -129,6 +130,7 @@ const onSubmit = async (e: React.FormEvent) => {
   // dentro de src/pages/NewThread.tsx  :contentReference[oaicite:0]{index=0}
 return (
   <div className="min-h-screen bg-slate-50">
+    <ForumNavbar />
     <div className="mx-auto max-w-6xl px-4 py-6">
       {/* Breadcrumb + acción rápida */}
       <div className="mb-4 flex items-center gap-3 text-sm text-slate-600">

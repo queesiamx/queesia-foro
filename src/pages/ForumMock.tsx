@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getSidebarCounts, watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
+import ForumNavbar from "@/components/ForumNavbar";
 import { auth } from "@/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { watchIsFollowing } from "@/services/follow";
@@ -993,7 +994,8 @@ if (q.trim()) {
   </div>
 </div>
 
-      <Navbar />
+      <ForumNavbar />
+
       <FiltersBar
       onCreate={handleCreate}
         q={q}

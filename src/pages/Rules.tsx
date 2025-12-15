@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
+import ForumNavbar from "@/components/ForumNavbar";
+
 import { ShieldCheck, AlertTriangle, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export default function Rules() {
   return (
+    
     <div className="min-h-screen bg-slate-50">
+      <ForumNavbar />
       {/* Header */}
       <div className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto max-w-5xl px-4 py-4">

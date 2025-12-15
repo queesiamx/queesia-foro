@@ -3,7 +3,9 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { db, auth } from "@/firebase";
 import { requireSession } from "@/services/auth";
+import ForumNavbar from "@/components/ForumNavbar";
 
+import { ShieldCheck, AlertTriangle, ArrowLeft } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getLastReadAt, touchLastRead } from "@/services/threadReads";
 
@@ -477,6 +479,18 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
 
 
   return (
+
+  <div className="min-h-screen bg-slate-50 pt-16">
+    <ForumNavbar />
+
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mb-4 flex items-center gap-3 text-sm text-slate-600">
+        <Link to="/" className="inline-flex items-center gap-1 hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" />
+          Volver al foro
+        </Link>
+      </div>
+
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       {/* Si no existe el hilo, muestra aviso y no intentes pintar su contenido */}
       {thread === null ? (
@@ -599,11 +613,9 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
           />
         ))
       )}
-
-
       </section>
 
-            {/* Hilos relacionados (F4.2) */}
+      {/* Hilos relacionados (F4.2) */}
       {thread && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
@@ -634,6 +646,7 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
                     : "border-slate-100 bg-white";          // casi sin relación
 
                 return (
+                  
                   <li
                     key={t.id}
                     className={`flex items-start justify-between gap-3 rounded-2xl border p-3 ${cardTone}`}
@@ -763,7 +776,9 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
         </>
       )}
     </div>
-  );
+    </div>
+  </div>
+);
 }
 
 /* --------------------------- Subcomponentes UI --------------------------- */
