@@ -335,6 +335,7 @@ function Navbar() {
 
 
 function FiltersBar({
+
   onCreate,
   q,
   setQ,
@@ -345,6 +346,7 @@ function FiltersBar({
   sort,
   setSort,
 }: {
+  
   onCreate: () => void;
   q: string;
   setQ: (v: string) => void;
@@ -355,9 +357,13 @@ function FiltersBar({
   sort: "recientes" | "populares" | "sinrespuesta";
   setSort: (v: "recientes" | "populares" | "sinrespuesta") => void;
 }) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
   return (
-    <div className="sticky top-16 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+  <div className="sticky top-16 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div className="mx-auto max-w-7xl px-4 py-3">
+      {/* ===================== DESKTOP (md+) ===================== */}
+      <div className="hidden md:flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative w-full max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -368,7 +374,8 @@ function FiltersBar({
               className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-indigo-400"
             />
           </div>
-          <div className="hidden items-center gap-2 md:flex">
+
+          <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-slate-400" />
             <select
               value={category}
@@ -381,13 +388,16 @@ function FiltersBar({
                 </option>
               ))}
             </select>
+
             <div className="h-6 w-px bg-slate-200" />
+
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <Toggle checked={onlySolved} onChange={() => setOnlySolved(!onlySolved)} />
               Solo resueltos
             </label>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-slate-500">Ordenar:</span>
           <div className="relative">
@@ -402,9 +412,8 @@ function FiltersBar({
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>
-          
-          {/* ✅ Acciones movidas a la barra inferior */}
-          <div className="ml-2 hidden md:flex items-center gap-2">
+
+          <div className="ml-2 flex items-center gap-2">
             <Link
               to="/reglas"
               className="inline-flex items-center rounded-full border border-slate-200 bg-white/60
@@ -412,26 +421,147 @@ function FiltersBar({
             >
               Reglas
             </Link>
+
             <button
               onClick={onCreate}
-                className="
-                  inline-flex items-center gap-2
-                  h-10 px-5 rounded-full
-                  text-white font-semibold
-                  bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500
-                  shadow-md shadow-slate-900/10
-                  hover:brightness-95
-                "
-              >
+              className="
+                inline-flex items-center gap-2
+                h-10 px-5 rounded-full
+                text-white font-semibold
+                bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500
+                shadow-md shadow-slate-900/10
+                hover:brightness-95
+              "
+            >
               <Plus className="h-4 w-4" /> Crear tema
             </button>
-            
           </div>
         </div>
       </div>
+
+      {/* ===================== MÓVIL (<md) ===================== */}
+      <div className="md:hidden flex flex-col gap-2">
+        {/* fila 1: buscar */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar temas, etiquetas o autores..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-indigo-400"
+          />
+        </div>
+
+        {/* fila 2: acciones */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white/60
+                       px-3 text-sm font-semibold text-slate-700 hover:bg-white"
+          >
+            <Filter className="h-4 w-4 text-slate-500" />
+            Filtros
+          </button>
+
+          <Link
+            to="/reglas"
+            className="inline-flex h-10 items-center rounded-full border border-slate-200 bg-white/60
+                       px-3 text-sm font-semibold text-slate-700 hover:bg-white"
+          >
+            Reglas
+          </Link>
+
+          <button
+            onClick={onCreate}
+            className="ml-auto inline-flex h-10 items-center gap-2 rounded-full px-4
+                       text-white font-semibold
+                       bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500
+                       shadow-md shadow-slate-900/10 hover:brightness-95"
+          >
+            <Plus className="h-4 w-4" /> Crear
+          </button>
+        </div>
+      </div>
     </div>
+
+    {/* ===================== PANEL MÓVIL: FILTROS ===================== */}
+    {mobileFiltersOpen && (
+      <div className="fixed inset-0 z-50 md:hidden">
+        {/* overlay */}
+        <button
+          onClick={() => setMobileFiltersOpen(false)}
+          className="absolute inset-0 bg-black/20"
+          aria-label="Cerrar filtros"
+        />
+
+        {/* sheet */}
+        <div className="absolute left-0 right-0 top-20 mx-3 rounded-2xl border border-white/40 bg-white/90 backdrop-blur-xl shadow-lg shadow-slate-900/10">
+          <div className="flex items-center justify-between p-3">
+            <div className="text-sm font-semibold text-slate-900">Filtros</div>
+            <button
+              onClick={() => setMobileFiltersOpen(false)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl
+                         border border-slate-200 bg-white/60 hover:bg-white"
+              aria-label="Cerrar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="px-3 pb-3 space-y-3">
+            {/* Categoría */}
+            <div>
+              <div className="text-xs font-medium text-slate-600 mb-1">Categoría</div>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-400"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Solo resueltos */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-sm text-slate-700">Solo resueltos</div>
+              <Toggle checked={onlySolved} onChange={() => setOnlySolved(!onlySolved)} />
+            </div>
+
+            {/* Ordenar */}
+            <div>
+              <div className="text-xs font-medium text-slate-600 mb-1">Ordenar</div>
+              <div className="relative">
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as any)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-9 text-sm text-slate-700 focus:border-indigo-400"
+                >
+                  <option value="recientes">Recientes</option>
+                  <option value="populares">Populares</option>
+                  <option value="sinrespuesta">Sin respuesta</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              </div>
+            </div>
+
+            <button
+              onClick={() => setMobileFiltersOpen(false)}
+              className="w-full rounded-xl bg-slate-900 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   );
 }
+
 
 
 // Reemplaza TODO el componente por esta versión
