@@ -148,7 +148,7 @@ export default function ForumNavbar() {
       {/* PANEL MÓVIL */}
       {mobileOpen && (
         <div className="fixed top-14 left-0 z-50 w-full lg:hidden">
-          <div className="mx-3 mt-2 rounded-2xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-lg shadow-slate-900/10 overflow-hidden">
+          <div className="mx-3 mt-2 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10 overflow-hidden">
             <div className="flex flex-col p-3 text-base text-slate-900">
               <a
                 href="https://queesia.com/#catalogo"

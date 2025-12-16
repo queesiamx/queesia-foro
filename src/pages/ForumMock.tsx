@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { watchIsFollowing } from "@/services/follow";
 import LogoQueso from "../assets/logo-bg.png";
 import BgAmorph from "@/assets/bg_amorph.svg";
+import VisitCounterForum from "@/components/VisitCounterForum";
 
 
 import {
@@ -496,7 +497,14 @@ function FiltersBar({
         />
 
         {/* sheet */}
-        <div className="absolute left-0 right-0 top-20 mx-3 rounded-2xl border border-white/40 bg-white/90 backdrop-blur-xl shadow-lg shadow-slate-900/10">
+        <div className="
+        absolute left-0 right-0 top-20 mx-3
+        rounded-2xl
+        border border-slate-200
+        bg-white
+        shadow-lg shadow-slate-900/10
+      ">
+
           <div className="flex items-center justify-between p-3">
             <div className="text-sm font-semibold text-slate-900">Filtros</div>
             <button
@@ -733,6 +741,7 @@ function Sidebar({ onCreate }: { onCreate: () => void }) {
       {/* Estadísticas reales (Firestore) */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Estadísticas</h3>
+        <VisitCounterForum />
         {counts ? (
           <ul className="mt-3 space-y-1 text-sm text-slate-700">
             <li>
