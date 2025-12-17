@@ -10,8 +10,9 @@ import {
   limit,
   onSnapshot,
 } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import { MessageSquare, Eye } from "lucide-react";
+import ForumNavbar from "@/components/ForumNavbar";
 
 // Ampliamos un poco el tipo para asegurarnos de tener autor
 type ThreadWithAuthor = Thread & {
@@ -47,7 +48,17 @@ export default function Threads() {
   }, []);
 
   return (
-    <div className="space-y-4">
+       <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
+        <ForumNavbar />
+
+        <div className="pt-2">
+                <Link
+                  to="/"
+                  className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
+                >
+                  ← Volver
+                </Link>
+              </div>
       {loading
         ? Array.from({ length: 6 }).map((_, i) => (
             <div

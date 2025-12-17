@@ -14,9 +14,13 @@ import {
   where,
   updateDoc,
   serverTimestamp,
+  deleteDoc,
+  getDocs,
+  writeBatch,
 } from "firebase/firestore";
-import { Eye, MessageSquare } from "lucide-react";
+import { Eye, MessageSquare, Trash2 } from "lucide-react";
 import { uploadImageToCloudinary } from "@/services/cloudinary";
+import ForumNavbar from "@/components/ForumNavbar";
 
 type ThreadLite = {
   id: string;
@@ -359,9 +363,53 @@ export default function UserProfile() {
       setSaving(false);
     }
   };
+  const handleDeleteReply = async (postId: string) => {
+  if (!isMe || !uid) return;
+  const ok = confirm("¿Eliminar esta respuesta? Esta acción no se puede deshacer.");
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "posts", postId));
+  } catch (err) {
+    console.error("Error eliminando post:", err);
+    alert("No se pudo eliminar la respuesta. Intenta de nuevo.");
+  }
+};
+
+const handleDeleteThread = async (threadId: string, threadTitle?: string) => {
+  if (!isMe || !uid) return;
+
+  const ok = confirm(
+    `¿Eliminar el hilo${threadTitle ? ` “${threadTitle}”` : ""}?\n\n` +
+      `El hilo dejará de estar disponible, pero las respuestas (incluyendo las de otros) no se borrarán y podrán aparecer como actividad en perfiles.`
+  );
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "threads", threadId));
+  } catch (err) {
+    console.error("Error eliminando thread:", err);
+    alert("No se pudo eliminar el hilo. Intenta de nuevo.");
+  }
+};
+
+
 
   return (
+
+          
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
+    <ForumNavbar />
+
+
+      <div className="pt-2">
+        <Link
+          to="/"
+          className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
+        >
+          ← Volver
+        </Link>
+      </div>
       {/* Encabezado */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -619,12 +667,28 @@ export default function UserProfile() {
                   key={t.id}
                   className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 flex flex-col gap-1"
                 >
-                  <Link
-                    to={`/thread/${t.id}`}
-                    className="font-medium text-slate-900 hover:underline"
+                 <div className="flex items-start justify-between gap-3">
+                <Link
+                  to={`/thread/${t.id}`}
+                  className="font-medium text-slate-900 hover:underline"
+                >
+                  {t.title ?? "Sin título"}
+                </Link>
+
+                {isMe && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteThread(t.id, t.title)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-rose-200 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-50"
+                    title="Eliminar hilo"
                   >
-                    {t.title ?? "Sin título"}
-                  </Link>
+                    <Trash2 className="h-3 w-3" />
+                    Eliminar
+                  </button>
+                )}
+              </div>
+
+
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     {created && <span>{fmtShort(created)}</span>}
                     <span className="inline-flex items-center gap-1">
@@ -677,12 +741,27 @@ export default function UserProfile() {
                   key={r.id}
                   className="rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 flex flex-col gap-1"
                 >
-                  <Link
-                    to={`/thread/${r.threadId}`}
-                    className="font-medium text-slate-900 hover:underline"
+                  <div className="flex items-start justify-between gap-3">
+                <Link
+                  to={`/thread/${r.threadId}`}
+                  className="font-medium text-slate-900 hover:underline"
+                >
+                  {r.threadTitle ?? "Hilo no disponible (el autor lo eliminó)"}
+                </Link>
+
+                {isMe && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteReply(r.id)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-rose-200 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-50"
+                    title="Eliminar respuesta"
                   >
-                    {r.threadTitle ?? "Respuesta en un hilo"}
-                  </Link>
+                    <Trash2 className="h-3 w-3" />
+                    Eliminar
+                  </button>
+                )}
+              </div>
+
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     {created && <span>{fmtShort(created)}</span>}
                     <span>{r.upvotes ?? 0} votos</span>
@@ -692,16 +771,7 @@ export default function UserProfile() {
             })}
           </ul>
         )}
-      </section>
-
-      <div className="pt-2">
-        <Link
-          to="/feed"
-          className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
-        >
-          ← Volver al feed
-        </Link>
-      </div>
+      </section>  
     </div>
   );
 }

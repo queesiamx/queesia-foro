@@ -97,7 +97,7 @@ const fmt = (d?: Date) =>
 /* --------------------------------- Página -------------------------------- */
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
-  const [thread, setThread] = useState<TThread | null>(null);
+  const [thread, setThread] = useState<TThread | null | undefined>(undefined);
   const [posts, setPosts] = useState<TPost[]>([]);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
@@ -492,13 +492,17 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
       </div>
 
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-      {/* Si no existe el hilo, muestra aviso y no intentes pintar su contenido */}
-      {thread === null ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
-          Hilo no encontrado.
-        </div>
-      ) : (
-        <>
+      {/* Estado del hilo: cargando / no existe / existe */}
+        {thread === undefined ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
+            Cargando hilo…
+          </div>
+        ) : thread === null ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
+            Hilo no disponible. El autor ha eliminado.
+          </div>
+        ) : (
+          <>
         {/* Header del hilo */}
         <header className="rounded-2xl border border-slate-200 bg-white p-5">
           {/* Autor del hilo */}
@@ -582,9 +586,7 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
                 Reportar
               </button>
             )}
-          <Link to="/feed" className="hover:underline">
-            ← Volver al feed
-          </Link>
+          
         </div>
       </header>
 
@@ -602,15 +604,12 @@ const viewsShown = (thread?.viewsCount ?? thread?.views ?? 0);
             thread={thread!}
             onReplyClick={() => handleReplyClick(p)}
             isFirstUnread={p.id === firstUnreadPostId}
-                // 👇 NUEVO
             onReportClick={() =>
-              openReport({
-                type: "post",
-                id: p.id,
-                label: p.authorName ?? "esta respuesta",
-              })
+              openReport({ type: "post", id: p.id, label: p.authorName ?? "esta respuesta" })
             }
+            canMarkBest={!!currentUserId && currentUserId === thread?.authorId}
           />
+
         ))
       )}
       </section>
@@ -873,14 +872,17 @@ function FollowButton({ threadId }: FollowButtonProps) {
   thread,
   onReplyClick,
   isFirstUnread,
-  onReportClick,      // 👈 aquí lo agregamos
+  onReportClick,
+  canMarkBest, // 👈 nuevo
 }: {
   p: TPost;
   thread: TThread;
   onReplyClick: () => void;
   isFirstUnread?: boolean;
   onReportClick: () => void;
+  canMarkBest: boolean;
 }) {
+
 
   const when = useMemo(() => fmt(toDate(p.createdAt)), [p.createdAt]);
   const letter = (p.authorName ?? "U")[0]?.toUpperCase();
@@ -1034,48 +1036,55 @@ function FollowButton({ threadId }: FollowButtonProps) {
             dangerouslySetInnerHTML={renderSafe(p.body)}
           />
 
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-            {/* 👍 Like */}
-            <button
-              type="button"
-              onClick={handleLike}
-              disabled={liking}
-              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
-            </button>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+  <button
+    type="button"
+    onClick={handleLike}
+    disabled={liking}
+    className="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+  >
+    <ThumbsUp className="h-3.5 w-3.5" /> {(p.upvotes ?? 0).toString()}
+  </button>
 
-            {/* Responder: baja al textarea y mete la mención */}
-            <button
-              type="button"
-              onClick={onReplyClick}
-              className="rounded-lg border px-2 py-1 hover:bg-slate-50"
-            >
-              Responder
-            </button>
+  <button
+    type="button"
+    onClick={onReplyClick}
+    className="rounded-full border px-3 py-1.5 hover:bg-slate-50 whitespace-nowrap"
+  >
+    Responder
+  </button>
 
-              {/* 👇 NUEVO: reportar respuesta */}
-              <button
-                type="button"
-                onClick={onReportClick}
-                className="rounded-lg border border-rose-200 px-2 py-1 text-rose-700 hover:bg-rose-50"
-              >
-                Reportar
-              </button>
+  <button
+    type="button"
+    onClick={onReportClick}
+    className="rounded-full border border-rose-200 px-3 py-1.5 text-rose-700 hover:bg-rose-50 whitespace-nowrap"
+  >
+    Reportar
+  </button>
 
-            {/* #RTC_CO — F1.3: mejor respuesta */}
-            <button
-              onClick={toggleBest}
-              className={`rounded-lg border px-2 py-1 ${
-                isBest
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "hover:bg-slate-50"
-              }`}
-              title="Solo el autor del hilo puede marcar la mejor respuesta"
-            >
-              {isBest ? "Quitar mejor respuesta" : "Marcar mejor respuesta"}
-            </button>
-          </div>
+  {canMarkBest && (
+    <button
+      type="button"
+      onClick={toggleBest}
+      className={`rounded-full border px-3 py-1.5 whitespace-nowrap ${
+        isBest ? "bg-emerald-600 text-white hover:bg-emerald-700" : "hover:bg-slate-50"
+      }`}
+      title="Solo el autor del hilo puede marcar la mejor respuesta"
+    >
+      {isBest ? (
+        <>
+          <span className="sm:hidden">Quitar mejor</span>
+          <span className="hidden sm:inline">Quitar mejor respuesta</span>
+        </>
+      ) : (
+        <>
+          <span className="sm:hidden">Marcar mejor</span>
+          <span className="hidden sm:inline">Marcar mejor respuesta</span>
+        </>
+      )}
+    </button>
+  )}
+</div>
         </div>
       </div>
     </article>
