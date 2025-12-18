@@ -2,7 +2,9 @@
 import { useMemo, useState, useRef } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebase";
+
 import { Link, useNavigate } from "react-router-dom";
+import { notifyAdmins } from "@/services/notifications";
 import {
   ArrowLeft, Eye, EyeOff, Bold, Italic, Code, Hash, Paperclip, HelpCircle,
 } from "lucide-react";
@@ -25,6 +27,9 @@ function mdLight(s: string) {
     .replace(/`(.+?)`/g, "<code>$1</code>")
     .replace(/\n/g, "<br/>");
 }
+
+// (EmailJS se maneja desde src/services/notifications.ts)
+
 
 export default function NewThread() {
   const [title, setTitle] = useState("");
@@ -118,7 +123,24 @@ const onSubmit = async (e: React.FormEvent) => {
 
   try {
     const ref = await addDoc(collection(db, "threads"), data);
-    navigate(`/thread/${ref.id}`);
+ 
+    // Notificación interna a admins (no bloquear si falla)
+      notifyAdmins({
+        evento: "Nuevo tema en foro",
+        mensaje_personalizado: [
+          "🧀 NOTIFICACIÓN QUEESIA",
+          "Tipo: Nuevo tema publicado en Foro",
+          "",
+          `Título: ${data.title ?? "-"}`,
+          `Categoría: ${data.category ?? "-"}`,
+          `Autor: ${data.authorName ?? "-"}`,
+          `UID: ${data.authorId ?? "-"}`,
+          "",
+          `Ver hilo: ${window.location.origin}/thread/${ref.id}`,
+        ].join("\n"),
+      }).catch(() => {});
+
+     navigate(`/thread/${ref.id}`);
   } catch (e: any) {
     console.error("[addDoc] Firestore error:", e?.code, e?.message, e);
     alert("No se pudo crear el hilo. Revisa consola para el detalle.");

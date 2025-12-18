@@ -1,6 +1,8 @@
 // src/services/notifications.ts
 // Utilidades de notificaciones del foro
 
+import emailjs from "@emailjs/browser";
+
 import {
   collection,
   query,
@@ -15,7 +17,42 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/firebase";
+ import { db } from "@/firebase";
+
+
+ const ADMIN_EMAILS = ["misaeltup@gmail.com", "amhjmixqui@gmail.com"];
+
+ type NotifyAdminsArgs = {
+   evento: string;
+   mensaje_personalizado: string;
+ };
+
+ export async function notifyAdmins({ evento, mensaje_personalizado }: NotifyAdminsArgs) {
+   const templateParamsBase = {
+     nombre: "Equipo Queesia",
+     evento, // 👈 tu variable nueva en el template
+   };
+
+    const sends = ADMIN_EMAILS.map((adminEmail) =>
+    emailjs.send(
+      "service_vdpzkm8",
+      "template_n0pj59s",
+      {
+        ...templateParamsBase,
+        email: adminEmail,
+        mensaje_personalizado,
+      },
+      "9SxO0lF9IKHaknc4Q"
+    )
+  );
+
+  const results = await Promise.allSettled(sends);
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length) {
+    console.warn(`[notifyAdmins] fallaron ${failed.length}/${results.length} envíos`, failed);
+  }
+ }
+
 
 export type ForumNotification = {
   id: string;

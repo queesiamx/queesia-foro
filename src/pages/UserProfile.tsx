@@ -429,7 +429,7 @@ const handleDeleteThread = async (threadId: string, threadTitle?: string) => {
               {displayName}
             </h1>
             <p className="text-xs text-slate-500">
-              Participante en la comunidad de Quesia · Foro
+              Participante en la comunidad de Queesia · Foro
               {roleText ? ` · ${roleText}` : ""}
             </p>
           </div>
