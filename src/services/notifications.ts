@@ -20,7 +20,7 @@ import {
  import { db } from "@/firebase";
 
 
- const ADMIN_EMAILS = ["misaeltup@gmail.com", "amhjmixqui@gmail.com"];
+ const ADMIN_EMAILS = ["queesiamx.employee@gmail.com", "misaeltup@gmail.com", "amhjmixqui@gmail.com"];
 
  type NotifyAdminsArgs = {
    evento: string;
@@ -36,7 +36,7 @@ import {
     const sends = ADMIN_EMAILS.map((adminEmail) =>
     emailjs.send(
       "service_vdpzkm8",
-      "template_n0pj59s",
+      "template_cbwns4s",
       {
         ...templateParamsBase,
         email: adminEmail,
