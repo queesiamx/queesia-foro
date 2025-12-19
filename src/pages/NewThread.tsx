@@ -125,7 +125,7 @@ const onSubmit = async (e: React.FormEvent) => {
     const ref = await addDoc(collection(db, "threads"), data);
  
     // Notificación interna a admins (no bloquear si falla)
-      notifyAdmins({
+      await notifyAdmins({
         evento: "Nuevo tema en foro",
         mensaje_personalizado: [
           "🧀 NOTIFICACIÓN QUEESIA",
@@ -138,7 +138,7 @@ const onSubmit = async (e: React.FormEvent) => {
           "",
           `Ver hilo: ${window.location.origin}/thread/${ref.id}`,
         ].join("\n"),
-      }).catch(() => {});
+      });
 
      navigate(`/thread/${ref.id}`);
   } catch (e: any) {
