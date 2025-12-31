@@ -2,6 +2,7 @@
  import { db } from "@/firebase";
  import {
    collection,
+   getDocs, 
    query,
    where,
    orderBy,
@@ -13,7 +14,9 @@
    type QuerySnapshot,
    type DocumentData,
  } from "firebase/firestore";
+ import { useEffect, useState } from "react";
  import type { Thread } from "@/types/forum";
+ 
 
  // Forzamos a TS a tratarlo como no-nulo (si falla, fallará en runtime igual)
  const DB: Firestore = db as Firestore;
@@ -165,39 +168,70 @@ export function watchSidebarNowThreads(
  // ---------- Aggregations rápidas ----------
  export async function getSidebarCounts() {
    const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-   const baseStatus = ["published", "open"];
+    // ✅ Tolerante: si el doc NO tiene status, lo consideramos visible.
+  const snap = await getDocs(collection(DB, "threads"));
+  const visibleStates = new Set(["published", "open"]);
 
-   const totalQ = query(
-     collection(DB, "threads"),
-     where("status", "in", baseStatus)
-   );
-   const recientesQ = query(
-     collection(DB, "threads"),
-     where("status", "==", "published")
-   );
-   const preguntasQ = query(
-     collection(DB, "threads"),
-     where("status", "==", "published"),
-     where("tags", "array-contains", "preguntas")
-   );
-   const tutorialesQ = query(
-     collection(DB, "threads"),
-     where("status", "==", "published"),
-     where("tags", "array-contains", "tutorial")
-   );
+  let total = 0;
+  let recientes = 0;
+  let preguntas = 0;
+  let tutoriales = 0;
 
-   const [all, rec, preg, tuto] = await Promise.all([
-     getCountFromServer(totalQ),
-     getCountFromServer(recientesQ),
-     getCountFromServer(preguntasQ),
-     getCountFromServer(tutorialesQ),
-   ]);
+  snap.forEach((d) => {
+    const t = d.data() as any;
+    const hasStatus = "status" in (t || {});
+    const status = String(t?.status ?? "").toLowerCase();
+    const isVisible = !hasStatus || visibleStates.has(status);
+    if (!isVisible) return;
 
-   return {
-     trending: all.data().count,
-     recientes: rec.data().count,
-     populares: Math.max(0, all.data().count - rec.data().count),
-     preguntas: preg.data().count,
-     tutoriales: tuto.data().count,
-   };
+    total += 1;
+
+   const created = t?.createdAt?.toDate?.() ?? null;
+    if (created && created >= sevenDaysAgo.toDate()) recientes += 1;
+
+    const tags = Array.isArray(t?.tags) ? t.tags.map((x: any) => String(x).toLowerCase()) : [];
+    if (tags.includes("preguntas")) preguntas += 1;
+    if (tags.includes("tutorial")) tutoriales += 1;
+  });
+
+  return {
+    trending: total,
+    recientes,
+    populares: Math.max(0, total - recientes),
+    preguntas,
+    tutoriales,
+  };
  }
+
+// ---------- Categories (REAL, Option B) ----------
+/**
+ * Devuelve SOLO categorías que tienen hilos visibles.
+ * IMPORTANTE: si `status` no existe (backfill pendiente), lo tratamos como visible.
+ */
+export async function getCategoriesWithCounts() {
+  // OJO: NO filtramos por status en Firestore porque tus docs no tienen el campo.
+  const snap = await getDocs(collection(DB, "threads"));
+
+  const visibleStates = new Set(["published", "open"]);
+  const counter: Record<string, number> = {};
+
+  snap.forEach((doc) => {
+    const data = doc.data() as any;
+
+    // ✅ Si status no existe, lo consideramos visible (para no romper el widget)
+    const status = String(data?.status ?? "").toLowerCase();
+    const isVisible = !data?.status || visibleStates.has(status);
+    if (!isVisible) return;
+
+    const raw = String(data?.category ?? "").trim();
+    if (!raw) return;
+
+    const id = raw.toLowerCase();
+    counter[id] = (counter[id] || 0) + 1;
+  });
+
+  return Object.entries(counter)
+    .map(([id, count]) => ({ id, count }))
+    .filter((x) => x.count > 0); // Opción B
+}
+

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getSidebarCounts, watchTrendingThreads } from "@/services/forum";
+import { getSidebarCounts, getCategoriesWithCounts, watchTrendingThreads } from "@/services/forum";
 import type { Thread } from "@/types/forum";
 import ForumNavbar from "@/components/ForumNavbar";
 import { auth } from "@/firebase";
@@ -719,9 +719,20 @@ function Sidebar({ onCreate }: { onCreate: () => void }) {
     tutoriales: number;
   } | null>(null);
 
+// Categorías con conteo real (Option B: solo las que tienen hilos)
+const [catCounts, setCatCounts] = useState<Array<{ id: string; count: number }>>([]);
+
+ 
   useEffect(() => {
     getSidebarCounts().then(setCounts).catch(console.error);
   }, []);
+
+useEffect(() => {
+  getCategoriesWithCounts()
+    .then((rows) => setCatCounts(rows || []))
+    .catch(console.error);
+}, []);
+
 
   return (
     <div className="space-y-4">
@@ -765,39 +776,42 @@ function Sidebar({ onCreate }: { onCreate: () => void }) {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Categorías</h3>
-        <div className="mt-3 space-y-2">
-          {CATEGORIES.filter((c) => c.id !== "all").map((c) => (
-            <div key={c.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${c.color.split(" ")[0]}`} />
-                <span className="text-sm text-slate-700">{c.name}</span>
-              </div>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                {Math.floor(Math.random() * 40) + 3}
-              </span>
+
+        {(() => {
+          const getCount = (id: string) =>
+            catCounts.find((x) => x.id === id)?.count ?? 0;
+
+          const visible = CATEGORIES.filter(
+            (c) => c.id !== "all" && getCount(c.id) > 0
+          );
+
+          if (visible.length === 0) {
+            return (
+              <p className="mt-3 text-sm text-slate-400">
+                Aún no hay categorías activas
+              </p>
+            );
+          }
+          return (
+            <div className="mt-3 space-y-2">
+              {visible.map((c) => (
+                <div key={c.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${c.color.split(" ")[0]}`} />
+                    <span className="text-sm text-slate-700">{c.name}</span>
+                  </div>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                    {getCount(c.id)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+         );
+        })()}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">Tops de la semana</h3>
-        <ul className="mt-3 space-y-3">
-          {["Misael", "Nora", "Carla", "Leo"].map((u, i) => (
-            <li key={u} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold">
-                  {u[0]}
-                </div>
-                <span className="text-sm text-slate-700">{u}</span>
-              </div>
-              <span className="text-xs text-slate-500">{(10 - i) * 3} pts</span>
-            </li>
-          ))}
-        </ul>
-      </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">Reglas rápidas</h3>
