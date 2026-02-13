@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import {
   listenAuth,
   loginWithGoogle,
+  loginUnified, 
   logoutEverywhere,
   type Session,
 } from "@/services/auth";
@@ -60,7 +61,7 @@ export default function UserMenu() {
     const onLogin = async () => {
       setBusy(true);
       try {
-        await loginWithGoogle();
+        await loginUnified();
       } finally {
         setBusy(false);
       }

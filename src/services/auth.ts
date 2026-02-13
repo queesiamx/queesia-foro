@@ -5,6 +5,7 @@ import type { UserCredential } from "firebase/auth";
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCustomToken,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -20,6 +21,37 @@ export type Session = {
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
+/* ==== Bridge SSO (unificación de sesión) ==== */
+async function safeJson(r: Response) {
+  try { return await r.json(); } catch { return {}; }
+}
+
+async function ssoWhoAmI() {
+  const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
+  if (!BRIDGE_URL) return { ok: false };
+  try {
+    const r = await fetch(`${BRIDGE_URL}/whoami`, { credentials: "include" });
+    const data = await safeJson(r);
+    return { ok: r.ok, ...data };
+  } catch {
+    // Bridge apagado / puerto incorrecto / CORS / etc.
+    return { ok: false };
+  }
+}
+
+async function ssoGetCustomToken() {
+  const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
+  if (!BRIDGE_URL) return { ok: false };
+  try {
+    const r = await fetch(`${BRIDGE_URL}/custom-token`, { credentials: "include" });
+    const data = await safeJson(r);
+    return { ok: r.ok, ...data }; // espera { customToken }
+  } catch {
+    return { ok: false };
+  }
+}
+
+
 /* ==== Login / Logout básicos ==== */
 export function loginWithGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, provider);
@@ -27,6 +59,25 @@ export function loginWithGoogle(): Promise<UserCredential> {
 export function logout() {
   return signOut(auth);
 }
+
+/* ==== Login unificado (SSO -> Firebase custom token) ==== */
+export async function loginUnified(): Promise<void> {
+  // 1) Si existe sesión SSO, usamos customToken (no popup)
+  const who = await ssoWhoAmI();
+  if (who?.ok) {
+    const tok = await ssoGetCustomToken();
+    const customToken = (tok as any)?.customToken;
+    if (!tok?.ok || !customToken) {
+      throw new Error("SSO_CUSTOM_TOKEN_FAILED");
+    }
+    await signInWithCustomToken(auth, customToken);
+    return;
+  }
+
+  // 2) Fallback (por si estás en local o no hay sesión SSO)
+  await loginWithGoogle();
+}
+
 
 /* ==== Logout “en todos lados” (botón del Layout) ==== */
 export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
@@ -118,10 +169,14 @@ export async function requireSession(): Promise<Session> {
   const now = await getSession();
   if (now) return now;
 
-  // 2) Popup (una sola vez)
+  // 2) Login (SSO si existe; si no, popup fallback)
   let cred: UserCredential;
   try {
-    cred = await loginWithGoogle();
+    // loginUnified no regresa cred; pero el observer se actualiza.
+    // Para mantener compatibilidad, hacemos: loginUnified + esperar a auth.currentUser
+    await loginUnified();
+    if (!auth.currentUser) throw new Error("AUTH_REQUIRED");
+    cred = { user: auth.currentUser } as unknown as UserCredential;
   } catch {
     // popup cerrado/bloqueado o error de auth
     throw new Error("AUTH_REQUIRED_POPUP_BLOCKED");

@@ -1,7 +1,7 @@
 // src/components/AuthBox.tsx — RTC-CO (escucha sesión + fallback)
 import { useEffect, useState } from "react";
 import {
-  loginWithGoogle,
+  loginUnified,
   logoutEverywhere,
   listenAuth,     // 👈 usamos el listener de auth
   type Session,
@@ -27,7 +27,7 @@ export default function AuthBox() {
   const handleLogin = async () => {
     setBusy(true);
     try {
-      await loginWithGoogle(); // el listener actualizará el estado
+      await loginUnified(); // SSO si existe; si no, popup fallback
     } catch (e: any) {
       // Estos errores son comunes con popups; no son críticos
       if (

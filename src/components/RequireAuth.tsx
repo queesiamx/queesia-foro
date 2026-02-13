@@ -39,7 +39,7 @@ export default function RequireAuth({ children }: Props) {
             nav(loc.pathname + loc.search, { replace: true });
           }}
         >
-          Acceder con Google
+          Iniciar sesión
         </button>
       </div>
     );
