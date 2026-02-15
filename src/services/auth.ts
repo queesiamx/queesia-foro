@@ -26,8 +26,15 @@ async function safeJson(r: Response) {
   try { return await r.json(); } catch { return {}; }
 }
 
+function getBridgeUrl() {
+  // Debe ser URL completa al endpoint (no base), ejemplo:
+  // https://expertos.queesia.com/api/trackVisit
+  return (import.meta.env.VITE_AUTH_BRIDGE_URL || "").replace(/\/+$/, "");
+}
+
+
 async function ssoWhoAmI() {
-  const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
+  const BRIDGE_URL = getBridgeUrl();
   if (!BRIDGE_URL) return { ok: false };
 
   try {
@@ -43,7 +50,7 @@ async function ssoWhoAmI() {
 
 
 async function ssoGetCustomToken() {
-  const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
+  const BRIDGE_URL = getBridgeUrl();
   if (!BRIDGE_URL) return { ok: false };
 
   try {
@@ -55,7 +62,22 @@ async function ssoGetCustomToken() {
   }
 }
 
-
+async function ssoLoginWithIdToken(idToken: string) {
+  const BRIDGE_URL = getBridgeUrl();
+  if (!BRIDGE_URL) return { ok: false };
+  try {
+    const r = await fetch(`${BRIDGE_URL}?action=login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await safeJson(r);
+    return { ok: r.ok, ...data };
+  } catch {
+    return { ok: false };
+  }
+}
 
 /* ==== Login / Logout básicos ==== */
 export function loginWithGoogle(): Promise<UserCredential> {
@@ -88,7 +110,16 @@ export async function loginUnified(): Promise<void> {
   }
 
   console.log("[loginUnified] fallback popup");
-  await loginWithGoogle();
+  const cred = await loginWithGoogle();
+  // Importante: “avisa” al bridge para que otros subdominios puedan ver sesión (cookie/bridge)
+  try {
+    const idToken = await cred.user.getIdToken();
+    const resp = await ssoLoginWithIdToken(idToken);
+    console.log("[loginUnified] bridge login resp", resp);
+  } catch (e) {
+    console.warn("[loginUnified] bridge login failed (non-blocking)", e);
+  }
+
   console.log("[loginUnified] popup done");
 }
 
@@ -105,10 +136,10 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
   } catch (_) {}
 
   // Si tienes un bridge de cookies/sesión en servidor, lo llamamos (opcional)
-  const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
+  const BRIDGE_URL = getBridgeUrl();
   if (BRIDGE_URL) {
     try {
-      await fetch(`${BRIDGE_URL}?action=logout`, { method: "POST", credentials: "include" });
+      await fetch(`${BRIDGE_URL}?action=logout`, { method: 'POST', credentials: 'include' });
     } catch (_) {}
   }
 
