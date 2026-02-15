@@ -68,7 +68,12 @@ export default function AuthBox() {
       className="inline-flex items-center gap-2 rounded-full bg-black px-3.5 py-1.5 text-sm font-medium text-white shadow-sm ring-1 ring-white/10 hover:bg-black/90 active:scale-[.98] disabled:opacity-70 transition"
       aria-label="Iniciar sesión con Google"
     >
-      <GoogleG className="h-4 w-4" />
+      <GoogleG
+      className="h-4 w-4 shrink-0 block"
+                  width={16}
+                  height={16}
+                />
+                  
       <span className="hidden sm:inline">{busy ? "Ingresando…" : "Iniciar sesión"}</span>
       <span className="sm:hidden">{busy ? "…" : "Ingresar"}</span>
     </button>
