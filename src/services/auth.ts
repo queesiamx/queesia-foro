@@ -161,28 +161,55 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
 
 /* ==== Observador de sesión ==== */
 export function listenAuth(cb: (user: any) => void) {
-    const unsub = onAuthStateChanged(auth, cb);
+  const unsub = onAuthStateChanged(auth, cb);
 
-  // 🔥 IMPORTANT: sincroniza LOGOUT cross-dominio
-  // Si el usuario cierra sesión en otro subdominio, el cookie del bridge se apaga,
-  // pero Firebase en este origin puede seguir “logueado”. Entonces validamos /whoami y cerramos.
   let alive = true;
-  const check = async () => {
-    if (!alive) return;
-    if (!auth.currentUser) return; // si ya no hay sesión, nada que hacer
-    const who = await ssoWhoAmI();
-    // Solo cerramos si alcanzamos al bridge y dice "no ok"
-    if (who?.reached && !who?.ok && auth.currentUser) {
-      console.log("[SSO] cookie OFF -> signOut(firebase) (foro)");
-      try { await signOut(auth); } catch (_) {}
+  let busy = false;
+
+  const sync = async () => {
+    if (!alive || busy) return;
+
+    // Si no hay bridge configurado, no hacemos nada.
+    const BRIDGE_URL = getBridgeUrl();
+    if (!BRIDGE_URL) return;
+
+    busy = true;
+    try {
+      const who = await ssoWhoAmI();
+
+      // 1) Bridge reachable + cookie OFF + firebase ON => cerrar firebase
+      if (who?.reached && !who?.ok && auth.currentUser) {
+        console.log("[SSO] cookie OFF -> signOut(firebase)");
+        try { await signOut(auth); } catch (_) {}
+        return;
+      }
+
+      // 2) Bridge reachable + cookie ON + firebase OFF => prender firebase
+      if (who?.reached && who?.ok && !auth.currentUser) {
+        console.log("[SSO] cookie ON -> signInWithCustomToken(firebase)");
+        const tok = await ssoGetCustomToken();
+        const customToken = (tok as any)?.customToken;
+
+        if (tok?.ok && customToken) {
+          await signInWithCustomToken(auth, customToken);
+        }
+      }
+    } finally {
+      busy = false;
     }
   };
 
-  const onFocus = () => { void check(); };
-  const onVis = () => { if (!document.hidden) void check(); };
+  // Boot inmediato (esto evita tener que “picar” el botón)
+  void sync();
+
+  // Revalidación cuando el usuario regresa a la pestaña
+  const onFocus = () => { void sync(); };
+  const onVis = () => { if (!document.hidden) void sync(); };
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVis);
-  const timer = window.setInterval(() => { void check(); }, 30_000);
+
+  // Poll suave (opcional)
+  const timer = window.setInterval(() => { void sync(); }, 30_000);
 
   return () => {
     alive = false;
@@ -192,6 +219,7 @@ export function listenAuth(cb: (user: any) => void) {
     window.clearInterval(timer);
   };
 }
+
 
 /* ==== Obtener sesión (con token) ==== */
 export function getSession(): Promise<Session | null> {
