@@ -35,32 +35,49 @@ function getBridgeUrl() {
 
 async function ssoWhoAmI() {
   const BRIDGE_URL = getBridgeUrl();
-  if (!BRIDGE_URL) return { ok: false };
+  if (!BRIDGE_URL) return { ok: false, reached: false as const };
 
   try {
     const r = await fetch(`${BRIDGE_URL}?action=me`, { credentials: "include" });
     const data = await safeJson(r);
     // el bridge antiguo devuelve { user: ... } cuando ok
     const ok = r.ok && !!(data as any)?.user;
-    return { ok, ...data };
+    return { ok, reached: true as const, ...data };
   } catch {
-    return { ok: false };
+    // Bridge apagado / DNS / CORS / etc. (NO cerramos sesión por esto)
+    return { ok: false, reached: false as const };
   }
 }
 
 
 async function ssoGetCustomToken() {
   const BRIDGE_URL = getBridgeUrl();
-  if (!BRIDGE_URL) return { ok: false };
+  if (!BRIDGE_URL) return { ok: false, reached: false as const };
 
   try {
     const r = await fetch(`${BRIDGE_URL}?action=customtoken`, { credentials: "include" });
     const data = await safeJson(r);
-    return { ok: r.ok, ...data }; // espera { customToken }
+    return { ok: r.ok, reached: true as const, ...data }; // espera { customToken }
   } catch {
-    return { ok: false };
+    return { ok: false, reached: false as const };
   }
 }
+
+async function ssoLogout() {
+  const BRIDGE_URL = getBridgeUrl();
+  if (!BRIDGE_URL) return { ok: false, reached: false as const };
+
+  try {
+    const r = await fetch(`${BRIDGE_URL}?action=logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return { ok: r.ok, reached: true as const };
+  } catch {
+    return { ok: false, reached: false as const };
+  }
+}
+
 
 async function ssoLoginWithIdToken(idToken: string) {
   const BRIDGE_URL = getBridgeUrl();
@@ -135,13 +152,8 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
     sessionStorage.removeItem('authUser');
   } catch (_) {}
 
-  // Si tienes un bridge de cookies/sesión en servidor, lo llamamos (opcional)
-  const BRIDGE_URL = getBridgeUrl();
-  if (BRIDGE_URL) {
-    try {
-      await fetch(`${BRIDGE_URL}?action=logout`, { method: 'POST', credentials: 'include' });
-    } catch (_) {}
-  }
+  // Bridge logout (borra cookie SSO global)
+  await ssoLogout();
 
 
   if (opts?.hardReload) window.location.href = '/';
@@ -149,7 +161,36 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
 
 /* ==== Observador de sesión ==== */
 export function listenAuth(cb: (user: any) => void) {
-  return onAuthStateChanged(auth, cb);
+    const unsub = onAuthStateChanged(auth, cb);
+
+  // 🔥 IMPORTANT: sincroniza LOGOUT cross-dominio
+  // Si el usuario cierra sesión en otro subdominio, el cookie del bridge se apaga,
+  // pero Firebase en este origin puede seguir “logueado”. Entonces validamos /whoami y cerramos.
+  let alive = true;
+  const check = async () => {
+    if (!alive) return;
+    if (!auth.currentUser) return; // si ya no hay sesión, nada que hacer
+    const who = await ssoWhoAmI();
+    // Solo cerramos si alcanzamos al bridge y dice "no ok"
+    if (who?.reached && !who?.ok && auth.currentUser) {
+      console.log("[SSO] cookie OFF -> signOut(firebase) (foro)");
+      try { await signOut(auth); } catch (_) {}
+    }
+  };
+
+  const onFocus = () => { void check(); };
+  const onVis = () => { if (!document.hidden) void check(); };
+  window.addEventListener("focus", onFocus);
+  document.addEventListener("visibilitychange", onVis);
+  const timer = window.setInterval(() => { void check(); }, 30_000);
+
+  return () => {
+    alive = false;
+    unsub();
+    window.removeEventListener("focus", onFocus);
+    document.removeEventListener("visibilitychange", onVis);
+    window.clearInterval(timer);
+  };
 }
 
 /* ==== Obtener sesión (con token) ==== */
