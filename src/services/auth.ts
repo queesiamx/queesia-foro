@@ -29,27 +29,32 @@ async function safeJson(r: Response) {
 async function ssoWhoAmI() {
   const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
   if (!BRIDGE_URL) return { ok: false };
+
   try {
-    const r = await fetch(`${BRIDGE_URL}/whoami`, { credentials: "include" });
+    const r = await fetch(`${BRIDGE_URL}?action=me`, { credentials: "include" });
     const data = await safeJson(r);
-    return { ok: r.ok, ...data };
+    // el bridge antiguo devuelve { user: ... } cuando ok
+    const ok = r.ok && !!(data as any)?.user;
+    return { ok, ...data };
   } catch {
-    // Bridge apagado / puerto incorrecto / CORS / etc.
     return { ok: false };
   }
 }
 
+
 async function ssoGetCustomToken() {
   const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
   if (!BRIDGE_URL) return { ok: false };
+
   try {
-    const r = await fetch(`${BRIDGE_URL}/custom-token`, { credentials: "include" });
+    const r = await fetch(`${BRIDGE_URL}?action=customtoken`, { credentials: "include" });
     const data = await safeJson(r);
     return { ok: r.ok, ...data }; // espera { customToken }
   } catch {
     return { ok: false };
   }
 }
+
 
 
 /* ==== Login / Logout básicos ==== */
@@ -103,9 +108,10 @@ export async function logoutEverywhere(opts?: { hardReload?: boolean }) {
   const BRIDGE_URL = import.meta.env.VITE_AUTH_BRIDGE_URL;
   if (BRIDGE_URL) {
     try {
-      await fetch(`${BRIDGE_URL}/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`${BRIDGE_URL}?action=logout`, { method: "POST", credentials: "include" });
     } catch (_) {}
   }
+
 
   if (opts?.hardReload) window.location.href = '/';
 }
