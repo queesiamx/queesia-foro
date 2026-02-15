@@ -62,21 +62,31 @@ export function logout() {
 
 /* ==== Login unificado (SSO -> Firebase custom token) ==== */
 export async function loginUnified(): Promise<void> {
-  // 1) Si existe sesión SSO, usamos customToken (no popup)
+  console.log("[loginUnified] start", {
+    bridge: import.meta.env.VITE_AUTH_BRIDGE_URL,
+    href: window.location.href,
+  });
+
   const who = await ssoWhoAmI();
+  console.log("[loginUnified] whoami", who);
+
   if (who?.ok) {
     const tok = await ssoGetCustomToken();
+    console.log("[loginUnified] token resp", tok);
+
     const customToken = (tok as any)?.customToken;
-    if (!tok?.ok || !customToken) {
-      throw new Error("SSO_CUSTOM_TOKEN_FAILED");
-    }
+    if (!tok?.ok || !customToken) throw new Error("SSO_CUSTOM_TOKEN_FAILED");
+
     await signInWithCustomToken(auth, customToken);
+    console.log("[loginUnified] signed in with custom token");
     return;
   }
 
-  // 2) Fallback (por si estás en local o no hay sesión SSO)
+  console.log("[loginUnified] fallback popup");
   await loginWithGoogle();
+  console.log("[loginUnified] popup done");
 }
+
 
 
 /* ==== Logout “en todos lados” (botón del Layout) ==== */

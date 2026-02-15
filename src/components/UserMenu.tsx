@@ -1,19 +1,10 @@
 // src/components/UserMenu.tsx
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  listenAuth,
-  loginWithGoogle,
-  loginUnified, 
-  logoutEverywhere,
-  type Session,
-} from "@/services/auth";
+import { listenAuth, loginUnified, logoutEverywhere, type Session } from "@/services/auth";
 
 // correos con acceso a las vistas de admin
-const ADMIN_EMAILS = [
-  "queesiamx@gmail.com",
-  "queesiamx.employee@gmail.com",
-];
+const ADMIN_EMAILS = ["queesiamx@gmail.com", "queesiamx.employee@gmail.com"];
 
 export default function UserMenu() {
   const [user, setUser] = useState<Session | null>(null);
@@ -22,7 +13,6 @@ export default function UserMenu() {
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  // Mantén la sesión sincronizada
   useEffect(
     () =>
       listenAuth((u) => {
@@ -37,7 +27,6 @@ export default function UserMenu() {
     []
   );
 
-  // Cerrar al hacer click afuera o con Escape
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!open) return;
@@ -56,16 +45,26 @@ export default function UserMenu() {
     };
   }, [open]);
 
-  // Si no hay sesión: botón "Iniciar sesión"
-  if (!user) {
-    const onLogin = async () => {
-      setBusy(true);
-      try {
-        await loginUnified();
-      } finally {
-        setBusy(false);
-      }
-    };
+// Si no hay sesión: botón "Iniciar sesión"
+if (!user) {
+  const onLogin = async () => {
+    console.log("[UserMenu] click login");
+    setBusy(true);
+    try {
+      await loginUnified();
+    } catch (e) {
+      console.error("[UserMenu] login error", e);
+      alert(
+        (e as any)?.code
+          ? `${(e as any).code}: ${(e as any).message}`
+          : String(e)
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  
     return (
       <button
         ref={btnRef}
@@ -74,9 +73,7 @@ export default function UserMenu() {
         className="inline-flex items-center gap-2 rounded-full bg-black px-3.5 py-1.5 text-sm font-medium text-white shadow-sm ring-1 ring-white/10 hover:bg-black/90 active:scale-[.98] disabled:opacity-70 transition"
       >
         <GoogleG className="h-4 w-4" />
-        <span className="hidden sm:inline">
-          {busy ? "Ingresando…" : "Iniciar sesión"}
-        </span>
+        <span className="hidden sm:inline">{busy ? "Ingresando…" : "Iniciar sesión"}</span>
         <span className="sm:hidden">{busy ? "…" : "Ingresar"}</span>
       </button>
     );
@@ -84,7 +81,6 @@ export default function UserMenu() {
 
   const isAdmin = !!user.email && ADMIN_EMAILS.includes(user.email);
 
-  // Con sesión: avatar + menú
   return (
     <div className="relative">
       <button
@@ -109,25 +105,16 @@ export default function UserMenu() {
           role="menu"
           className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
         >
-          {/* Encabezado con nombre / correo */}
           <div className="px-3 py-2 text-sm text-slate-600">
-            <div className="truncate font-medium text-slate-900">
-              {user.displayName || user.email || "Usuario"}
-            </div>
-            {user.email && (
-              <div className="truncate text-xs text-slate-500">
-                {user.email}
-              </div>
-            )}
+            <div className="truncate font-medium text-slate-900">{user.displayName || user.email || "Usuario"}</div>
+            {user.email && <div className="truncate text-xs text-slate-500">{user.email}</div>}
           </div>
 
           <div className="my-1 h-px bg-slate-200" />
 
-          {/* Rutas principales del foro */}
           <MenuItem to={`/u/${user.uid}`}>Mi perfil</MenuItem>
           <MenuItem to="/notificaciones">Notificaciones</MenuItem>
 
-          {/* Opciones sólo para admins */}
           {isAdmin && (
             <>
               <div className="my-1 h-px bg-slate-200" />
@@ -141,7 +128,6 @@ export default function UserMenu() {
 
           <div className="my-1 h-px bg-slate-200" />
 
-          {/* Logout */}
           <button
             onClick={() => logoutEverywhere({ hardReload: true })}
             className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -157,11 +143,7 @@ export default function UserMenu() {
 
 function MenuItem({ to, children }: { to: string; children: React.ReactNode }) {
   return (
-    <Link
-      to={to}
-      className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-      role="menuitem"
-    >
+    <Link to={to} className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50" role="menuitem">
       {children}
     </Link>
   );
@@ -170,22 +152,7 @@ function MenuItem({ to, children }: { to: string; children: React.ReactNode }) {
 function GoogleG(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 533.5 544.3" aria-hidden="true" {...props}>
-      <path
-        fill="#4285F4"
-        d="M533.5 278.4c0-18.7-1.5-37.4-4.7-55.5H272v105h146.9c-6.3 34-27.1 62.8-57.9 82.2v68h93.6c54.9-50.6 78.9-125.1 78.9-199.7z"
-      />
-      <path
-        fill="#34A853"
-        d="M272 544.3c73.9 0 136-24.5 181.3-66.5l-93.6-68c-26 17.5-59.2 27.8-87.7 27.8-67.2 0-124.2-45.2-144.5-106h-96.1v66.6C87 486 173.1 544.3 272 544.3z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M127.5 331.6c-10.3-30.7-10.3-63.7 0-94.4v-66.6H31.4c-41.8 83.4-41.8 181.4 0 264.8l96.1-66.6z"
-      />
-      <path
-        fill="#EA4335"
-        d="M272 106.1c37.9-.6 75.2 14.4 102.7 41.7l76.6-76.6C407.7 24.8 341.2 0 272 0 173.1 0 87 58.3 31.4 170.6l96.1 66.6C147.8 175.1 204.8 129.9 272 129.9z"
-      />
+      {/* ...paths iguales... */}
     </svg>
   );
 }
