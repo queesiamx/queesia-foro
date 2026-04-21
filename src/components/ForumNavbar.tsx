@@ -93,6 +93,23 @@ export default function ForumNavbar() {
             >
               Blog
             </a>
+
+            <a
+              href="https://queesia.com/biblioteca/"
+              rel="noopener noreferrer"
+              className="hover:text-indigo-600 transition-colors"
+            >
+              Biblioteca
+            </a>
+
+            <a
+              href="https://queesia.com/ofertas-educativas/"
+              rel="noopener noreferrer"
+              className="hover:text-indigo-600 transition-colors"
+            >
+              Ofertas educativas
+            </a>
+
             <a
               href="https://queesia.com/nosotros"
               rel="noopener noreferrer"
@@ -189,6 +206,25 @@ export default function ForumNavbar() {
               >
                 Blog
               </a>
+
+              <a
+                href="https://queesia.com/biblioteca/"
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="rounded-xl px-3 py-2 hover:bg-white/60"
+              >
+                Biblioteca
+              </a>
+
+              <a
+                href="https://queesia.com/ofertas-educativas/"
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="rounded-xl px-3 py-2 hover:bg-white/60"
+              >
+                Ofertas educativas
+              </a>
+
               <a
                 href="https://queesia.com/nosotros"
                 rel="noopener noreferrer"
