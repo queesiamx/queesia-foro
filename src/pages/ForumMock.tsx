@@ -323,6 +323,14 @@ function Navbar() {
               </a>
 
               <a
+                rel="noopener noreferrer"
+                onClick={closeMobile}
+                className="rounded-xl px-3 py-2 hover:bg-white/60"
+              >
+                Agenda IA
+              </a>
+
+              <a
                 href="https://queesia.com/nosotros"
                 rel="noopener noreferrer"
                 onClick={closeMobile}
